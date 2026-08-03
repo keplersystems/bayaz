@@ -6,6 +6,7 @@ INSERT OR IGNORE, so re-running enumerate months later is itself the delta: new 
 pending, everything already captured keeps its state.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -59,6 +60,9 @@ class PageStatus(StrEnum):
     PENDING = "pending"
     FETCHED = "fetched"
     FAILED = "failed"
+    # Served by an API instead. Kept rather than deleted: the row still records that the
+    # page exists on the web, and unsuperseding it is how we fall back if an API dies.
+    SUPERSEDED = "superseded"
 
 
 @dataclass(slots=True)
@@ -154,6 +158,24 @@ class Database:
             (site, max_attempts, kind, limit) if kind else (site, max_attempts, limit),
         )
         return [PageRef.from_row(row) for row in await cursor.fetchall()]
+
+    async def urls_of_kinds(self, site: str, kinds: Sequence[str]) -> list[str]:
+        placeholders = ", ".join("?" * len(kinds))
+        cursor = await self._connection.execute(
+            f"SELECT url FROM pages WHERE site = ? AND kind IN ({placeholders})", (site, *kinds)
+        )
+        return [row["url"] for row in await cursor.fetchall()]
+
+    async def supersede(self, site: str, kinds: Sequence[str]) -> int:
+        """Stop crawling pages an API now serves. Only pending rows are touched, so
+        anything already captured keeps its status and its file."""
+        placeholders = ", ".join("?" * len(kinds))
+        cursor = await self._connection.execute(
+            f"UPDATE pages SET status = 'superseded' WHERE site = ? AND kind IN ({placeholders}) AND status = 'pending'",
+            (site, *kinds),
+        )
+        await self._connection.commit()
+        return cursor.rowcount
 
     async def fetched_urls(self, site: str, kind: str) -> list[str]:
         cursor = await self._connection.execute(

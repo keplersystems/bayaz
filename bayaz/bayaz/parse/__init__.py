@@ -18,6 +18,34 @@ from bayaz.sites import SITES
 logger = logging.getLogger(__name__)
 
 
+_DEVANAGARI = range(0x0900, 0x0980)
+_ARABIC = range(0x0600, 0x0700)
+
+
+def script_of(text: str) -> str:
+    for char in text:
+        if ord(char) in _DEVANAGARI:
+            return "hi"
+        if ord(char) in _ARABIC:
+            return "ur"
+    return "en"
+
+
+def assign_scripts(entry, values) -> None:
+    """Which slot a headword lands in is decided by its script, never by its position: both
+    the API's W1/W2/W3 and the page's own heading order rotate with the requested language."""
+    for value in values:
+        if not value:
+            continue
+        match script_of(value):
+            case "hi":
+                entry.headword_hindi = entry.headword_hindi or value
+            case "ur":
+                entry.headword_urdu = entry.headword_urdu or value
+            case _:
+                entry.headword = entry.headword or value
+
+
 @dataclass(slots=True)
 class Parsed:
     """Everything one page contributed. `relations_for` attaches relations to entries the
@@ -34,7 +62,7 @@ Parser = Callable[[str, str, str], Parsed]  # (site, url, html) -> Parsed
 
 
 def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
-    from bayaz.parse import platform, rekhtadict
+    from bayaz.parse import dictapi, platform, rekhtadict
 
     table: dict[tuple[str, str], tuple[Parser, int]] = {}
     for kind in ("word", "synonym", "antonym", "compound", "idiom", "proverb", "word-family", "tag", "partial"):
@@ -42,6 +70,9 @@ def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
     for site in ("hindwi", "sufinama"):
         for kind in ("dict", "work", "entity"):
             table[(site, kind)] = (platform.parse, platform.VERSION)
+    table[("rekhtadictionary", "word-api")] = (dictapi.parse, dictapi.VERSION)
+    table[("rekhtadictionary", "wordlist-api")] = (dictapi.parse, dictapi.VERSION)
+    table[("hindwi", "dict-api")] = (dictapi.parse, dictapi.VERSION)
     return table
 
 
@@ -75,7 +106,7 @@ async def run(site_names: list[str] | None, kind: str | None, limit: int | None)
                 failed = 0
                 for url in todo:
                     try:
-                        result = parser(site.name, url, rawstore.read(site.name, url))
+                        result = parser(site.name, url, rawstore.read(site.name, url, k))
                         await _apply(corpus, result, site.name)
                     except Exception:
                         failed += 1

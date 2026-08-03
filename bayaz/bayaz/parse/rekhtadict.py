@@ -17,7 +17,7 @@ from urllib.parse import parse_qsl, urlsplit
 from selectolax.parser import HTMLParser, Node
 
 from bayaz.corpus import Entry, Relation, Sense, Sher
-from bayaz.parse import Parsed
+from bayaz.parse import Parsed, assign_scripts
 
 VERSION = 1
 
@@ -92,12 +92,10 @@ def _parse_word(site: str, url: str, html: str) -> Parsed:
     entry = Entry(site=site, slug=_slug(url))
 
     if head := tree.css_first(".rdWordDsplyFormat"):
-        if h2 := head.css_first("h2"):
-            entry.headword = _clean(h2.text())
+        forms = [_clean(h2.text())] if (h2 := head.css_first("h2")) else []
         if h3 := head.css_first("h3"):
-            hindi, _, urdu = h3.text().partition("•")
-            entry.headword_hindi = _clean(hindi) or None
-            entry.headword_urdu = _clean(urdu) or None
+            forms += [_clean(part) for part in h3.text().split("•")]
+        assign_scripts(entry, forms)
 
     if vazn := tree.css_first(".rdSrchWrdVazn"):
         entry.vazn = _clean(vazn.text().split(":", 1)[-1]) or None

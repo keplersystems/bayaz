@@ -31,6 +31,20 @@ A uv workspace, one member per surface:
 `bayaz-mcp`, `bayaz-api` and `bayaz-web` join the workspace once there is a parsed corpus
 to serve; they all sit on the parser, which is the next component.
 
+`docs/` holds reference for the upstream JSON APIs the sites' mobile apps use, where one
+exists. Fetching a dictionary entry as JSON is far lighter on Rekhta than fetching the
+rendered page, so these replace most of the HTML crawl:
+
+| Doc | Replaces |
+|---|---|
+| [rekhta-dictionary-api.md](docs/rekhta-dictionary-api.md) | 927k of rekhtadictionary's 933k pages |
+| [hindwi-dictionary-api.md](docs/hindwi-dictionary-api.md) | 343k of hindwi's 414k pages |
+
+Both are unauthenticated read APIs. Together they cover 1,270,756 of the manifest's
+1,750,436 pages (73%), leaving 479,680 on the HTML crawl, of which sufinama's dictionary is
+294,465. Enumeration still comes from the sitemaps; the APIs replace the fetch, not the
+manifest.
+
 ## Usage
 
 Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/). Run from the repo root, or set

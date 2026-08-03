@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from bayaz import config
+from bayaz.apis import APIS
 from bayaz.db import Database, PageRef
 from bayaz.sites import Site
 
@@ -91,4 +92,31 @@ async def enumerate_site(db: Database, site: Site) -> tuple[int, int]:
             logger.info(f"{site.name}: {child_url.rsplit('/', 1)[-1]} — {len(pages)} urls, {new} new")
 
     logger.info(f"{site.name}: {seen} urls enumerated, {added} new")
+    await seed_api(db, site)
     return seen, added
+
+
+async def seed_api(db: Database, site: Site):
+    """Turn the word pages an API serves into API rows, and stop crawling their HTML.
+
+    Runs inside enumerate so it stays idempotent with it: the API url is derived from the
+    page url, so re-running only ever adds words the sitemaps have newly listed. The three
+    `?lang=` variants of one word collapse onto a single call, which is most of the saving.
+    """
+    api = APIS.get(site.name)
+    if api is None:
+        return
+
+    slugs = {slug for url in await db.urls_of_kinds(site.name, api.replaces) if (slug := api.slug(url))}
+    if not slugs:
+        return
+    # Only the first language is seeded. The rest are enqueued at crawl time, and only for
+    # the few words whose response carries script-specific content.
+    added = await db.add_pages(
+        [PageRef(url=api.url(slug, api.langs[0]), site=site.name, kind=api.kind, source="api") for slug in slugs]
+    )
+    superseded = await db.supersede(site.name, api.replaces)
+    logger.info(
+        f"{site.name}: {len(slugs):,} words -> {api.kind} ({added:,} new); "
+        f"{superseded:,} html page(s) superseded across {', '.join(api.replaces)}"
+    )

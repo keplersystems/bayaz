@@ -19,6 +19,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
 
 from selectolax.parser import HTMLParser
 
+from bayaz.apis import api_for, is_miss, parse_payload
 from bayaz.db import PageRef
 from bayaz.sites import Site
 
@@ -32,7 +33,11 @@ class Discovered:
     media: list[str] = field(default_factory=list)
 
 
-def discover(site: Site, segments: dict[str, str], page: PageRef, html: str) -> Discovered:
+def discover(site: Site, segments: dict[str, str], page: PageRef, body: str) -> Discovered:
+    if (api := api_for(site.name, page.kind)) is not None:
+        return _discover_api(api, page, body)
+
+    html = body
     tree = HTMLParser(html)
     found = Discovered(media=_audio(tree))
 
@@ -52,6 +57,31 @@ def discover(site: Site, segments: dict[str, str], page: PageRef, html: str) -> 
     if site.discover_links:
         found.pages.extend(_content_links(site, segments, page, tree))
     return found
+
+
+def _discover_api(api, page: PageRef, body: str) -> Discovered:
+    payload = parse_payload(body)
+
+    if page.kind == api.listing_kind:
+        return Discovered(
+            pages=[
+                PageRef(url=url, site=page.site, kind=page.kind, source="discovered")
+                for url in api.next_listing_url(page.url, payload)
+            ]
+        )
+
+    if is_miss(payload):
+        return Discovered()
+
+    pages = [
+        PageRef(url=url, site=page.site, kind=page.kind, source="discovered")
+        for url in api.extra_langs(page.url, payload)
+    ]
+    pages += [
+        PageRef(url=url, site=page.site, kind=api.listing_kind, source="discovered")
+        for url in api.overflow_urls(page.url, payload)
+    ]
+    return Discovered(pages=pages, media=api.audio_urls(payload))
 
 
 def _ref(site: Site, url: str, kind: str) -> PageRef:

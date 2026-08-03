@@ -16,19 +16,24 @@ from pathlib import Path
 from bayaz import config
 
 
-def path_for(site: str, url: str) -> Path:
+def suffix_for(kind: str) -> str:
+    """API responses are JSON; everything else is a rendered page."""
+    return ".json.gz" if kind.endswith("-api") else ".html.gz"
+
+
+def path_for(site: str, url: str, kind: str = "") -> Path:
     digest = hashlib.sha1(url.encode()).hexdigest()
-    return config.RAW_DIR / site / digest[:2] / f"{digest}.html.gz"
+    return config.RAW_DIR / site / digest[:2] / f"{digest}{suffix_for(kind)}"
 
 
-def write(site: str, url: str, text: str) -> tuple[str, int]:
+def write(site: str, url: str, text: str, kind: str = "") -> tuple[str, int]:
     """Store a capture; returns the content's sha256 and its uncompressed size."""
     raw = text.encode("utf-8")
-    path = path_for(site, url)
+    path = path_for(site, url, kind)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(gzip.compress(raw, 6))
     return hashlib.sha256(raw).hexdigest(), len(raw)
 
 
-def read(site: str, url: str) -> str:
-    return gzip.decompress(path_for(site, url).read_bytes()).decode("utf-8")
+def read(site: str, url: str, kind: str = "") -> str:
+    return gzip.decompress(path_for(site, url, kind).read_bytes()).decode("utf-8")
