@@ -25,6 +25,11 @@ hardcoded absolute URL in the `@GET` annotation of `com/rekhta/network/RekthaApi
 (their typo, "Rektha"). Retrofit's configured `baseUrl` is
 `https://world.rekhta.org/api/V5_ApiAccount/` and applies only to account endpoints.
 
+**Same host as the Hindwi API, different mount point.** Hindwi is
+`app-rekhta-dictionary.rekhta.org/api/v1/hindwi-dict/`; this is
+`app-rekhta-dictionary.rekhta.org/rd-api/v1/`. Both resolve to `14.140.111.5`, as does
+`world.rekhta.org`. See "One origin, two APIs" below before writing a fetcher.
+
 **No authentication on any read endpoint**, and more cleanly than on Hindwi: the read
 methods declare no `Authorization` parameter at all, so nothing is sent. The OkHttp builder
 adds a logging interceptor and Chucker, with no auth interceptor and no signing.
@@ -36,6 +41,37 @@ there is no credential of theirs in play when we call it.
 
 Send the app's user agent (`okhttp/4.12.0`). Nothing else is required. Responses support
 gzip, so send `--compressed`.
+
+## One origin, two APIs
+
+Both dictionary APIs are one server, and it is a different server from the websites:
+
+| Host | Resolves to | Serves |
+|---|---|---|
+| `app-rekhta-dictionary.rekhta.org` | 14.140.111.5 | **both** dictionary APIs |
+| `world.rekhta.org` | 14.140.111.5 | the Rekhta app's account endpoints |
+| `www.rekhtadictionary.com`, `www.hindwi.org`, `www.rekhta.org` | 64.185.166.71 | the websites |
+
+Response headers on the API host: `Microsoft-IIS/10.0`, `x-aspnet-version: 4.0.30319`,
+`cache-control: no-cache`, `pragma: no-cache`, `expires: -1`, and **no CDN markers at all**.
+Compare the audio host `www.rekhta.org`, which returns `x-cache` and `age` headers, so it
+sits behind an edge. The API does not; requests land on their origin IIS box and are
+explicitly uncacheable.
+
+Two consequences for the fetcher:
+
+- **Pace per origin, not per site.** `crawl.py` currently gates per site, which is correct
+  for the websites since they are separate hostnames. Two API fetchers gated the same way
+  would each run a full budget against the same machine and double the rate on
+  14.140.111.5. The rekhtadictionary and hindwi API jobs must share one gate.
+- Do not read the byte reduction as a licence to speed up. Fewer bytes and less rendering
+  work per request is a real improvement, but it is still their origin answering every call
+  with no cache in front of it. Keep `BAYAZ_REQUEST_DELAY` and `BAYAZ_CONCURRENCY` as they
+  are, and split that budget across the two APIs.
+
+A one-pass crawl of unique URLs would get near-zero CDN hits on the website side anyway, so
+this is not a case of moving load from an edge onto an origin. Both paths reach origin; the
+API just asks it for far less.
 
 ## Languages
 

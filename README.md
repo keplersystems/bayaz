@@ -35,10 +35,11 @@ to serve; they all sit on the parser, which is the next component.
 exists. Fetching a dictionary entry as JSON is far lighter on Rekhta than fetching the
 rendered page, so these replace most of the HTML crawl:
 
-| Doc | Replaces |
+| Doc | Covers |
 |---|---|
-| [rekhta-dictionary-api.md](docs/rekhta-dictionary-api.md) | 927k of rekhtadictionary's 933k pages |
-| [hindwi-dictionary-api.md](docs/hindwi-dictionary-api.md) | 343k of hindwi's 414k pages |
+| [rekhta-dictionary-api.md](docs/rekhta-dictionary-api.md) | replaces 927k of rekhtadictionary's 933k pages |
+| [hindwi-dictionary-api.md](docs/hindwi-dictionary-api.md) | replaces 343k of hindwi's 414k pages |
+| [rekhta-poetry-api.md](docs/rekhta-poetry-api.md) | rekhta.org poets, poems, couplets, audio. Deferred scope, recorded because the endpoint names are perishable |
 
 Both are unauthenticated read APIs. Together they cover 1,270,756 of the manifest's
 1,750,436 pages (73%), leaving 479,680 on the HTML crawl, of which sufinama's dictionary is

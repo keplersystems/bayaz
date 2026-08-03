@@ -5,14 +5,16 @@ mistake costs a re-parse of local files, never a re-crawl. Crawl-time discovery 
 to what the manifest cannot be rebuilt from later — paging fragments, audio urls, and on
 the platform sites the content links their stale sitemaps miss.
 
-Sites crawl in parallel, each behind its own pacing gate: the gate spaces request starts
-REQUEST_DELAY apart while CONCURRENCY requests may be in flight, so slow responses overlap
-without the request rate ever rising. Every page's outcome is committed as it happens;
+Sites crawl in parallel, paced per host rather than per site: the gate spaces request
+starts REQUEST_DELAY apart while CONCURRENCY requests may be in flight, so slow responses
+overlap without the request rate ever rising. Two sites answering from one machine share
+that budget, which is what keeps the dictionary APIs off double rate. Every page's outcome is committed as it happens;
 stopping the process at any point loses nothing but the requests in flight.
 """
 
 import asyncio
 import logging
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -35,16 +37,34 @@ class FetchError(RuntimeError):
         super().__init__(f"{url}: {detail}")
 
 
+class Pacer:
+    """One budget per host, shared across sites.
+
+    Both dictionary APIs answer from app-rekhta-dictionary.rekhta.org, an origin IIS box
+    with no CDN in front of it. Gating per site would give each of them a full budget and
+    double the rate on that one machine, so the gate is keyed by host instead."""
+
+    def __init__(self):
+        self._gates: dict[str, tuple[asyncio.Lock, asyncio.Semaphore]] = {}
+
+    def for_url(self, url: str) -> tuple[asyncio.Lock, asyncio.Semaphore]:
+        host = urlsplit(url).netloc
+        if host not in self._gates:
+            self._gates[host] = (asyncio.Lock(), asyncio.Semaphore(config.CONCURRENCY))
+        return self._gates[host]
+
+
 class SiteCrawler:
-    def __init__(self, db: Database, site: Site, *, kind: str | None, limit: int | None, retry_failed: bool):
+    def __init__(
+        self, db: Database, site: Site, pacer: Pacer, *, kind: str | None, limit: int | None, retry_failed: bool
+    ):
         self.db = db
         self.site = site
+        self.pacer = pacer
         self.kind = kind
         self.limit = limit
         self.retry_failed = retry_failed
         self._segments: dict[str, str] = {}
-        self._gate = asyncio.Lock()
-        self._slots = asyncio.Semaphore(config.CONCURRENCY)
         self._client = httpx.AsyncClient(
             headers={"User-Agent": config.USER_AGENT}, follow_redirects=True, timeout=config.TIMEOUT
         )
@@ -75,9 +95,10 @@ class SiteCrawler:
         return max(0, self.limit - self.fetched - self.failed)
 
     async def _one(self, page: PageRef):
-        async with self._slots:
+        gate, slots = self.pacer.for_url(page.url)
+        async with slots:
             try:
-                response = await self._fetch(page.url)
+                response = await self._fetch(page.url, gate)
             except FetchError as e:
                 logger.warning(f"{self.site.name}: {e} (failure {page.attempts + 1})")
                 await self.db.mark_failed(page.url, e.status, str(e))
@@ -96,9 +117,9 @@ class SiteCrawler:
         if self.fetched % _PROGRESS_EVERY == 0:
             logger.info(f"{self.site.name}: {self.fetched} fetched this run")
 
-    async def _fetch(self, url: str) -> httpx.Response:
+    async def _fetch(self, url: str, gate: asyncio.Lock) -> httpx.Response:
         for attempt, backoff in enumerate(_BACKOFF, start=1):
-            async with self._gate:
+            async with gate:
                 await asyncio.sleep(config.REQUEST_DELAY)
             try:
                 response = await self._client.get(url)
@@ -123,7 +144,10 @@ class SiteCrawler:
 
 async def crawl(sites: list[Site], kind: str | None, limit: int | None, retry_failed: bool):
     async with Database(config.DATABASE_PATH) as db:
-        crawlers = [SiteCrawler(db, site, kind=kind, limit=limit, retry_failed=retry_failed) for site in sites]
+        pacer = Pacer()
+        crawlers = [
+            SiteCrawler(db, site, pacer, kind=kind, limit=limit, retry_failed=retry_failed) for site in sites
+        ]
         results = await asyncio.gather(*(crawler.run() for crawler in crawlers))
     fetched = sum(f for f, _ in results)
     failed = sum(f for _, f in results)

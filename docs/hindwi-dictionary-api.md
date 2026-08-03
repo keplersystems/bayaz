@@ -29,6 +29,12 @@ From `BuildConfig.CONFIG_BASE_URL_API_V2`, whose name says V2 while its value is
 path. A second base, `CONFIG_BASE_URL_API_ACCOUNT_V5` = `/api/V5_ApiAccount/`, carries login
 and registration only and is irrelevant to archiving.
 
+**Same host as the Rekhta Urdu API, different mount point.** That one is
+`app-rekhta-dictionary.rekhta.org/rd-api/v1/`. Both resolve to `14.140.111.5`, a different
+machine from the websites (`64.185.166.71`) and with no CDN in front of it. The two API
+fetchers therefore have to share one pacing gate rather than each getting a budget. Full
+detail in [rekhta-dictionary-api.md](rekhta-dictionary-api.md#one-origin-two-apis).
+
 **Read endpoints require no authentication**, in two different ways:
 
 - `GetHomePage` and `GetWordDetailsByIdSlug` send **no `Authorization` header at all**. The
