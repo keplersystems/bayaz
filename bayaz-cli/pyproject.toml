@@ -1,0 +1,17 @@
+[project]
+name = "bayaz-cli"
+version = "0.1.0"
+description = "CLI — enumerate, crawl, status"
+readme = "../README.md"
+requires-python = ">=3.13"
+dependencies = ["bayaz"]
+
+[project.scripts]
+bayaz = "bayaz_cli:main"
+
+[tool.uv.sources]
+bayaz = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

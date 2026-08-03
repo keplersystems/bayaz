@@ -1,0 +1,8 @@
+[tool.uv.workspace]
+members = ["bayaz", "bayaz-cli"]
+
+[dependency-groups]
+dev = ["ruff>=0.15.0"]
+
+[tool.ruff]
+line-length = 120
