@@ -84,8 +84,10 @@ class SiteCrawler:
                 self.failed += 1
                 return
 
-        sha256, size = rawstore.write(self.site.name, page.url, response.text)
-        found = discover(self.site, self._segments, page, response.text)
+        # Off the event loop: gzip and HTML parsing are the crawl's whole CPU cost, and on
+        # the loop they stall every site's fetch handling, not just this one's.
+        sha256, size = await asyncio.to_thread(rawstore.write, self.site.name, page.url, response.text)
+        found = await asyncio.to_thread(discover, self.site, self._segments, page, response.text)
         await self.db.add_pages(found.pages)
         await self.db.add_media(self.site.name, found.media, page.url)
         await self.db.mark_fetched(page.url, response.status_code, sha256, size)
