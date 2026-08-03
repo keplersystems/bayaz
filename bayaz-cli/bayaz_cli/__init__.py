@@ -66,6 +66,8 @@ def main():
 
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # httpx logs one INFO line per request; at millions of requests that is the whole log
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     try:
         match args.command:
