@@ -62,6 +62,11 @@ def main():
     crawl_cmd.add_argument("--limit", type=int, help="Stop after this many pages per site")
     crawl_cmd.add_argument("--retry-failed", action="store_true", help="Also retry pages that previously failed")
 
+    parse_cmd = commands.add_parser("parse", help="Extract structured data from captured pages into the corpus")
+    parse_cmd.add_argument("--site", choices=SITES, action="append", help="Only this site; repeatable")
+    parse_cmd.add_argument("--kind", help="Only pages of this kind")
+    parse_cmd.add_argument("--limit", type=int, help="Stop after this many pages per site and kind")
+
     commands.add_parser("status", help="Where the archive stands, per site and kind")
 
     args = parser.parse_args()
@@ -75,6 +80,10 @@ def main():
                 asyncio.run(_enumerate(args.site))
             case "crawl":
                 asyncio.run(crawl(_sites(args.site), args.kind, args.limit, args.retry_failed))
+            case "parse":
+                from bayaz import parse
+
+                asyncio.run(parse.run(args.site, args.kind, args.limit))
             case "status":
                 asyncio.run(_status())
     except KeyboardInterrupt:

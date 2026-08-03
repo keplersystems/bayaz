@@ -155,6 +155,13 @@ class Database:
         )
         return [PageRef.from_row(row) for row in await cursor.fetchall()]
 
+    async def fetched_urls(self, site: str, kind: str) -> list[str]:
+        cursor = await self._connection.execute(
+            "SELECT url FROM pages WHERE site = ? AND kind = ? AND status = 'fetched' ORDER BY fetched_at",
+            (site, kind),
+        )
+        return [row["url"] for row in await cursor.fetchall()]
+
     async def mark_fetched(self, url: str, http_status: int, sha256: str, size: int):
         await self._connection.execute(
             """

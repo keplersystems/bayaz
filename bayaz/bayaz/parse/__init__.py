@@ -1,0 +1,88 @@
+"""Parse: raw captures into the corpus, offline.
+
+Each (site, kind) with structure worth extracting has a parser; kinds without one (blog,
+static, listing chrome) simply stay unparsed. Parsers are versioned: bumping a module's
+VERSION re-parses exactly its pages on the next run, which is the whole point of keeping
+the raw store — extraction mistakes cost a local re-parse, never a re-crawl.
+"""
+
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass, field
+
+from bayaz import config, rawstore
+from bayaz.corpus import Corpus, Entity, Entry, Relation, Work
+from bayaz.db import Database
+from bayaz.sites import SITES
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class Parsed:
+    """Everything one page contributed. `relations_for` attaches relations to entries the
+    page is about but does not define — a tag page names many words, a fragment extends
+    one — keyed by the entry slug they belong to."""
+
+    entries: list[Entry] = field(default_factory=list)
+    relations_for: dict[str, list[Relation]] = field(default_factory=dict)
+    works: list[Work] = field(default_factory=list)
+    entities: list[Entity] = field(default_factory=list)
+
+
+Parser = Callable[[str, str, str], Parsed]  # (site, url, html) -> Parsed
+
+
+def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
+    from bayaz.parse import platform, rekhtadict
+
+    table: dict[tuple[str, str], tuple[Parser, int]] = {}
+    for kind in ("word", "synonym", "antonym", "compound", "idiom", "proverb", "word-family", "tag", "partial"):
+        table[("rekhtadictionary", kind)] = (rekhtadict.parse, rekhtadict.VERSION)
+    for site in ("hindwi", "sufinama"):
+        for kind in ("dict", "work", "entity"):
+            table[(site, kind)] = (platform.parse, platform.VERSION)
+    return table
+
+
+async def _apply(corpus: Corpus, result: Parsed, site: str):
+    for entry in result.entries:
+        await corpus.upsert_entry(entry)
+    for slug, relations in result.relations_for.items():
+        await corpus.add_relations(site, slug, relations)
+    for work in result.works:
+        await corpus.upsert_work(work)
+    for entity in result.entities:
+        await corpus.upsert_entity(entity)
+
+
+async def run(site_names: list[str] | None, kind: str | None, limit: int | None):
+    table = _registry()
+    sites = [SITES[name] for name in (site_names or SITES)]
+    async with Database(config.DATABASE_PATH) as db, Corpus(config.DATA_DIR / "corpus.db") as corpus:
+        for site in sites:
+            kinds = [k for (s, k) in table if s == site.name and (kind is None or k == kind)]
+            for k in kinds:
+                parser, version = table[(site.name, k)]
+                fetched = await db.fetched_urls(site.name, k)
+                done = await corpus.parsed_urls(site.name, k, version)
+                todo = [u for u in fetched if u not in done]
+                if limit is not None:
+                    todo = todo[:limit]
+                if not todo:
+                    continue
+                logger.info(f"{site.name}/{k}: parsing {len(todo)} page(s)")
+                failed = 0
+                for url in todo:
+                    try:
+                        result = parser(site.name, url, rawstore.read(site.name, url))
+                        await _apply(corpus, result, site.name)
+                    except Exception:
+                        failed += 1
+                        logger.exception(f"{url}: parse failed")
+                        continue
+                    await corpus.mark_parsed(url, site.name, k, version)
+                if failed:
+                    logger.warning(f"{site.name}/{k}: {failed} page(s) failed to parse")
+        stats = await corpus.stats()
+    logger.info("corpus: " + ", ".join(f"{k}={v:,}" for k, v in stats.items()))
