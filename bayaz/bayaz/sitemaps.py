@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from bayaz import config
+from bayaz import config, rekhta
 from bayaz.apis import APIS
 from bayaz.db import Database, PageRef
 from bayaz.sites import Site
@@ -65,6 +65,9 @@ def _segment(url: str) -> str | None:
 async def enumerate_site(db: Database, site: Site) -> tuple[int, int]:
     """Returns (urls seen, urls new). Child sitemaps are fetched one at a time; this is a
     few dozen requests, not a crawl."""
+    if not site.sitemap_index:
+        return await seed_rekhta(db)
+
     async with httpx.AsyncClient(
         headers={"User-Agent": config.USER_AGENT}, follow_redirects=True, timeout=config.TIMEOUT
     ) as client:
@@ -94,6 +97,18 @@ async def enumerate_site(db: Database, site: Site) -> tuple[int, int]:
     logger.info(f"{site.name}: {seen} urls enumerated, {added} new")
     await seed_api(db, site)
     return seen, added
+
+
+async def seed_rekhta(db: Database) -> tuple[int, int]:
+    """rekhta.org has no sitemap, so enumeration is its own listing walk: seed the roots and
+    queue the listing kinds again so the walk re-runs and surfaces anything published since.
+    """
+    added = await db.add_pages(
+        [PageRef(url=url, site=rekhta.SITE, kind=kind, source="seed") for url, kind in rekhta.seed_urls()]
+    )
+    requeued = await db.reset_to_pending(rekhta.SITE, rekhta.ENUMERATION_KINDS)
+    logger.info(f"rekhta: {added} seed url(s), {requeued:,} listing page(s) queued for re-walk")
+    return added, requeued
 
 
 async def seed_api(db: Database, site: Site):

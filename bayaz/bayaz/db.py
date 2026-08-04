@@ -166,6 +166,20 @@ class Database:
         )
         return [row["url"] for row in await cursor.fetchall()]
 
+    async def reset_to_pending(self, site: str, kinds: Sequence[str]) -> int:
+        """Queue already-captured rows again. Used for the kinds that enumerate a site
+        rather than belong to it, which have to be re-walked to reveal new content."""
+        placeholders = ", ".join("?" * len(kinds))
+        cursor = await self._connection.execute(
+            f"""
+            UPDATE pages SET status = 'pending', attempts = 0, error = NULL
+            WHERE site = ? AND kind IN ({placeholders}) AND status != 'pending'
+            """,
+            (site, *kinds),
+        )
+        await self._connection.commit()
+        return cursor.rowcount
+
     async def supersede(self, site: str, kinds: Sequence[str]) -> int:
         """Stop crawling pages an API now serves. Only pending rows are touched, so
         anything already captured keeps its status and its file."""

@@ -57,6 +57,12 @@ ENDPOINTS = {
 # The only GET among them, per the verb rule in the docs.
 _GET_KINDS = frozenset({"content"})
 
+# Kinds that enumerate the corpus rather than being part of it. They are re-fetched on
+# every `enumerate`, because on a site with no sitemap the listings *are* the sitemap: left
+# marked fetched they would be skipped, and a delta run would report nothing to do while
+# newly published work sat undiscovered behind them.
+ENUMERATION_KINDS = ("content-types", "poets", "content-list", "couplet-list", "tags")
+
 
 def request_for_kind(kind: str) -> Request:
     return REKHTA_GET if kind in _GET_KINDS else REKHTA_POST
@@ -139,6 +145,15 @@ class ContentType:
 
 def pages_for(total: int) -> int:
     return (total + PAGE_SIZE - 1) // PAGE_SIZE
+
+
+def seed_urls() -> list[tuple[str, str]]:
+    """The roots the corpus unfolds from. Everything else is discovered."""
+    return [
+        (content_types_url(), "content-types"),
+        (poets_url(1), "poets"),
+        (tags_url(), "tags"),
+    ]
 
 
 def envelope(payload: dict) -> dict | list | None:

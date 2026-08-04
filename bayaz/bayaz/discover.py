@@ -19,6 +19,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
 
 from selectolax.parser import HTMLParser
 
+from bayaz import rekhta
 from bayaz.apis import api_for, is_miss, parse_payload
 from bayaz.db import PageRef
 from bayaz.sites import Site
@@ -34,6 +35,13 @@ class Discovered:
 
 
 def discover(site: Site, segments: dict[str, str], page: PageRef, body: str) -> Discovered:
+    if site.name == rekhta.SITE:
+        pages, media = rekhta.discover(page.url, parse_payload(body))
+        return Discovered(
+            pages=[PageRef(url=url, site=site.name, kind=kind, source="discovered") for url, kind in pages],
+            media=media,
+        )
+
     if (api := api_for(site.name, page.kind)) is not None:
         return _discover_api(api, page, body)
 

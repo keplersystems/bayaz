@@ -69,6 +69,28 @@ and `crawl` only fetches pending ones.
 `--kind` filters skip the paging fragments discovered along the way (they are recorded as
 kind `partial`); a run without `--kind` picks them up.
 
+## Resuming
+
+Re-run the same command. The checkpoint is per URL rather than a position or a timestamp:
+every row in the manifest carries its own status, so a crawl selects whatever is still
+pending and carries on, whether it stopped a minute ago or a year ago.
+
+```bash
+uv run bayaz enumerate   # optional, picks up anything the sites published since
+uv run bayaz crawl
+```
+
+That makes `data/` the only thing worth backing up, since the raw store can be re-fetched
+and the corpus re-parsed, but the manifest is what knows which of the 1.75M URLs are done.
+
+Two caveats. Improving a parser means re-parsing, which needs the raw captures on local
+disk, so anything moved to cold storage has to come back first. And the APIs in `docs/`
+will drift, which is why the endpoints are written down at all; re-verify them against a
+current client before a large run rather than trusting a six-month-old note.
+
+`ops/` holds the loop we use to run this on a server, keeping the crawl alive and moving
+parsed captures to object storage. It is one deployment rather than part of the tool.
+
 ## How it works
 
 All in the `bayaz` library:
