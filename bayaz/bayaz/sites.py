@@ -79,4 +79,14 @@ SUFINAMA = Site(
     discover_links=True,
 )
 
-SITES = {site.name: site for site in (REKHTA_DICTIONARY, HINDWI, SUFINAMA)}
+# rekhta.org is reached entirely through its mobile API, so it has no sitemap index and no
+# kind map: the corpus is discovered from the API itself, seeded by the content-type and
+# poet lists. See bayaz/rekhta.py.
+REKHTA = Site(
+    name="rekhta",
+    sitemap_index="",
+    hosts=("app-rekhta.rekhta.org",),
+    kinds={},
+)
+
+SITES = {site.name: site for site in (REKHTA_DICTIONARY, HINDWI, SUFINAMA, REKHTA)}

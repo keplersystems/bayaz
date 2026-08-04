@@ -21,6 +21,7 @@ import httpx
 from bayaz import config, rawstore
 from bayaz.db import Database, PageRef
 from bayaz.discover import discover
+from bayaz.request import Request, request_for
 from bayaz.sites import Site
 
 logger = logging.getLogger(__name__)
@@ -37,21 +38,28 @@ class FetchError(RuntimeError):
         super().__init__(f"{url}: {detail}")
 
 
-class Pacer:
-    """One budget per host, shared across sites.
+# Hosts that are one machine. Rekhta's three app backends all answer from 14.140.111.5,
+# an origin IIS box with no CDN in front of it, so pacing them by hostname would hand one
+# server three budgets. The websites are separate addresses and keep their own.
+_ORIGIN_GROUPS = {
+    "app-rekhta.rekhta.org": "rekhta-app",
+    "app-rekhta-dictionary.rekhta.org": "rekhta-app",
+    "world.rekhta.org": "rekhta-app",
+}
 
-    Both dictionary APIs answer from app-rekhta-dictionary.rekhta.org, an origin IIS box
-    with no CDN in front of it. Gating per site would give each of them a full budget and
-    double the rate on that one machine, so the gate is keyed by host instead."""
+
+class Pacer:
+    """One budget per origin, shared across sites."""
 
     def __init__(self):
         self._gates: dict[str, tuple[asyncio.Lock, asyncio.Semaphore]] = {}
 
     def for_url(self, url: str) -> tuple[asyncio.Lock, asyncio.Semaphore]:
         host = urlsplit(url).netloc
-        if host not in self._gates:
-            self._gates[host] = (asyncio.Lock(), asyncio.Semaphore(config.CONCURRENCY))
-        return self._gates[host]
+        key = _ORIGIN_GROUPS.get(host, host)
+        if key not in self._gates:
+            self._gates[key] = (asyncio.Lock(), asyncio.Semaphore(config.CONCURRENCY))
+        return self._gates[key]
 
 
 class SiteCrawler:
@@ -98,7 +106,7 @@ class SiteCrawler:
         gate, slots = self.pacer.for_url(page.url)
         async with slots:
             try:
-                response = await self._fetch(page.url, gate)
+                response = await self._fetch(page.url, gate, request_for(self.site.name, page.kind))
             except FetchError as e:
                 logger.warning(f"{self.site.name}: {e} (failure {page.attempts + 1})")
                 await self.db.mark_failed(page.url, e.status, str(e))
@@ -117,12 +125,14 @@ class SiteCrawler:
         if self.fetched % _PROGRESS_EVERY == 0:
             logger.info(f"{self.site.name}: {self.fetched} fetched this run")
 
-    async def _fetch(self, url: str, gate: asyncio.Lock) -> httpx.Response:
+    async def _fetch(self, url: str, gate: asyncio.Lock, spec: Request) -> httpx.Response:
         for attempt, backoff in enumerate(_BACKOFF, start=1):
             async with gate:
                 await asyncio.sleep(config.REQUEST_DELAY)
             try:
-                response = await self._client.get(url)
+                response = await self._client.request(
+                    spec.method, url, headers=spec.headers(), json=spec.body
+                )
             except httpx.HTTPError as e:
                 if attempt == len(_BACKOFF):
                     raise FetchError(url, None, str(e)) from e

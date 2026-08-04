@@ -56,13 +56,16 @@ class Parsed:
     relations_for: dict[str, list[Relation]] = field(default_factory=dict)
     works: list[Work] = field(default_factory=list)
     entities: list[Entity] = field(default_factory=list)
+    # Word occurrences per work slug: (lang, line_ord, word_ord, word, code). Only the
+    # rekhta poetry API supplies these; the sites' HTML carries no word-level codes.
+    work_words: dict[str, list[tuple[int, int, int, str, str | None]]] = field(default_factory=dict)
 
 
 Parser = Callable[[str, str, str], Parsed]  # (site, url, html) -> Parsed
 
 
 def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
-    from bayaz.parse import dictapi, platform, rekhtadict
+    from bayaz.parse import dictapi, platform, rekhtaapi, rekhtadict
 
     table: dict[tuple[str, str], tuple[Parser, int]] = {}
     for kind in ("word", "synonym", "antonym", "compound", "idiom", "proverb", "word-family", "tag", "partial"):
@@ -73,6 +76,8 @@ def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
     table[("rekhtadictionary", "word-api")] = (dictapi.parse, dictapi.VERSION)
     table[("rekhtadictionary", "wordlist-api")] = (dictapi.parse, dictapi.VERSION)
     table[("hindwi", "dict-api")] = (dictapi.parse, dictapi.VERSION)
+    for kind in ("content", "poet", "poets", "word", "word-group"):
+        table[("rekhta", kind)] = (rekhtaapi.parse, rekhtaapi.VERSION)
     return table
 
 
@@ -85,6 +90,8 @@ async def _apply(corpus: Corpus, result: Parsed, site: str):
         await corpus.upsert_work(work)
     for entity in result.entities:
         await corpus.upsert_entity(entity)
+    for slug, words in result.work_words.items():
+        await corpus.set_work_words(site, slug, words)
 
 
 async def run(site_names: list[str] | None, kind: str | None, limit: int | None):

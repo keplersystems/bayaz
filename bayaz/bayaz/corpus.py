@@ -11,6 +11,7 @@ therefore keeps whichever variant supplied the most text for a language, which m
 merge order-independent: parse the variants in any order and the full sections win.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -76,9 +77,13 @@ CREATE TABLE IF NOT EXISTS works (
     work_type TEXT NOT NULL,
     title TEXT,
     title_translit TEXT,
+    title_hindi TEXT,
+    title_urdu TEXT,
     author_name TEXT,
     author_url TEXT,
     body TEXT,
+    body_hindi TEXT,
+    body_urdu TEXT,
     source TEXT,
     UNIQUE (site, slug)
 );
@@ -104,6 +109,21 @@ CREATE TABLE IF NOT EXISTS entities (
     died TEXT,
     UNIQUE (site, slug)
 );
+
+-- Every word occurrence in a rekhta text, in reading order, carrying the machine code that
+-- resolves to a dictionary entry. This is what makes the poetry corpus word-level
+-- annotated and joins it to the dictionary corpus; storing occurrences rather than a
+-- distinct word list keeps position, which is what makes concordance work possible.
+CREATE TABLE IF NOT EXISTS work_words (
+    work_id INTEGER NOT NULL,
+    lang TEXT NOT NULL,
+    line_ord INTEGER NOT NULL,
+    word_ord INTEGER NOT NULL,
+    word TEXT NOT NULL,
+    code TEXT,
+    PRIMARY KEY (work_id, lang, line_ord, word_ord)
+);
+CREATE INDEX IF NOT EXISTS idx_work_words_code ON work_words(code);
 
 CREATE TABLE IF NOT EXISTS parsed (
     url TEXT PRIMARY KEY,
@@ -165,9 +185,13 @@ class Work:
     work_type: str
     title: str | None = None
     title_translit: str | None = None
+    title_hindi: str | None = None
+    title_urdu: str | None = None
     author_name: str | None = None
     author_url: str | None = None
     body: str | None = None
+    body_hindi: str | None = None
+    body_urdu: str | None = None
     source: str | None = None
     tags: list[tuple[str, str | None]] = field(default_factory=list)  # (tag, url)
 
@@ -307,12 +331,21 @@ class Corpus:
     async def upsert_work(self, work: Work):
         await self._connection.execute(
             """
-            INSERT INTO works (site, slug, work_type, title, title_translit, author_name, author_url, body, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO works (site, slug, work_type, title, title_translit, title_hindi, title_urdu,
+                               author_name, author_url, body, body_hindi, body_urdu, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(site, slug) DO UPDATE SET
-                work_type = excluded.work_type, title = excluded.title, title_translit = excluded.title_translit,
-                author_name = excluded.author_name, author_url = excluded.author_url,
-                body = excluded.body, source = excluded.source
+                work_type = excluded.work_type,
+                title = COALESCE(excluded.title, title),
+                title_translit = COALESCE(excluded.title_translit, title_translit),
+                title_hindi = COALESCE(excluded.title_hindi, title_hindi),
+                title_urdu = COALESCE(excluded.title_urdu, title_urdu),
+                author_name = COALESCE(excluded.author_name, author_name),
+                author_url = COALESCE(excluded.author_url, author_url),
+                body = COALESCE(excluded.body, body),
+                body_hindi = COALESCE(excluded.body_hindi, body_hindi),
+                body_urdu = COALESCE(excluded.body_urdu, body_urdu),
+                source = COALESCE(excluded.source, source)
             """,
             (
                 work.site,
@@ -320,9 +353,13 @@ class Corpus:
                 work.work_type,
                 work.title,
                 work.title_translit,
+                work.title_hindi,
+                work.title_urdu,
                 work.author_name,
                 work.author_url,
                 work.body,
+                work.body_hindi,
+                work.body_urdu,
                 work.source,
             ),
         )
@@ -333,6 +370,30 @@ class Corpus:
         await self._connection.executemany(
             "INSERT OR IGNORE INTO work_tags (work_id, tag, tag_url) VALUES (?, ?, ?)",
             [(work_id, tag, url) for tag, url in work.tags],
+        )
+        await self._connection.commit()
+
+    async def set_work_words(self, site: str, slug: str, words: Sequence[tuple[int, int, int, str, str | None]]):
+        """Replace a work's word occurrences for the languages supplied.
+
+        Scoped per language because each language is a separate capture: rewriting only the
+        rows for the language being parsed leaves the other two intact rather than having
+        the last capture win."""
+        if not words:
+            return
+        cursor = await self._connection.execute("SELECT id FROM works WHERE site = ? AND slug = ?", (site, slug))
+        row = await cursor.fetchone()
+        if row is None:
+            return
+        work_id = row["id"]
+        langs = {lang for lang, *_ in words}
+        for lang in langs:
+            await self._connection.execute(
+                "DELETE FROM work_words WHERE work_id = ? AND lang = ?", (work_id, str(lang))
+            )
+        await self._connection.executemany(
+            "INSERT OR REPLACE INTO work_words (work_id, lang, line_ord, word_ord, word, code) VALUES (?, ?, ?, ?, ?, ?)",
+            [(work_id, str(lang), line, ord_, word, code) for lang, line, ord_, word, code in words],
         )
         await self._connection.commit()
 

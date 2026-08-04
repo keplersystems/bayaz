@@ -265,11 +265,26 @@ Two caveats:
 
 - **`PI` (poet id) is null in corpus-wide mode**, on all 50 items. `PE`/`PH`/`PU` still carry
   the poet's name, and the slug `S` embeds it, so the poet is recoverable but not by id.
-- The same trick on `GetCoupletListWithPaging` **hangs**. Couplets cannot be enumerated
-  corpus-wide and must be walked per poet.
+- ~~The same trick on `GetCoupletListWithPaging` hangs.~~ **Corrected 2026-08-04: it works.**
+  The hang was the missing JSON body, not the mode. With the body it returns `TC: 35061` for
+  couplets, 50 items in 0.75 s, and unlike the content endpoint it **does** populate `PI`.
 
-So there are two viable enumeration strategies: per poet via the 8,839-row poet list, or
-per content type corpus-wide for everything except fragments.
+So corpus-wide enumeration covers every content type including the fragments, which is the
+cheap strategy: about 2,940 listing calls for the whole corpus, against roughly 27,000 had
+the three fragment types needed a per-poet walk across 8,839 poets.
+
+### Measured corpus size, 2026-08-04
+
+One page-1 call per content type, reading `TC`:
+
+| | Types | Works |
+|---|---|---|
+| whole content (`LT=1`) | 64 | 110,589 |
+| fragments (`LT=2`) | 3 | 36,218 |
+| **total** | **67** | **146,807** |
+
+Largest: ghazals 81,285, couplets 35,061, nazms 14,365, stories 3,108, miiriyaat 1,895,
+qita 1,594, rubaai 1,247, articles 1,218. Sixteen types are empty.
 
 ## Field naming system
 
