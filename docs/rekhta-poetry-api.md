@@ -34,40 +34,80 @@ backend still considers current are two different things.
 Endpoint names are therefore the scarce artifact. Treat this list as something to preserve
 rather than rediscover.
 
+## One origin, three APIs
+
+`app-rekhta.rekhta.org` resolves to **14.140.111.5**, which is the same machine that serves
+both dictionary APIs on `app-rekhta-dictionary.rekhta.org` and the account endpoints on
+`world.rekhta.org`. The websites live elsewhere, on separate addresses.
+
+Any crawl of this API therefore shares a budget with the dictionary crawl rather than
+getting its own, extending to a third caller the conclusion reached in
+[rekhta-dictionary-api.md](rekhta-dictionary-api.md) for the two dictionaries. Pacing keyed
+on hostname would hand this host three budgets against one uncached IIS box, so the crawler
+groups all three names under a single origin key.
+
 ## Calling convention
 
+Parameters always go in the **query string**, never in the body, on both verbs. What varies
+is the body, and getting it wrong does not produce an error (see "The hang" below).
+
 ```bash
-curl -sS -m 25 --http1.1 -X POST \
-  -H 'Temptoken: <any UUID>' \
+# POST handlers: query-string parameters AND a JSON body of {"a":"a"}
+curl -sS -m 60 --http1.1 -X POST \
+  -H 'temptoken: <any UUID>' \
+  -H 'Content-Type: application/json' \
   -H 'User-Agent: Mozilla/5.0' \
-  -H 'Content-Length: 0' \
+  -d '{"a":"a"}' \
   'https://app-rekhta.rekhta.org/rekhta-api/v1/<Endpoint>?param=value'
 ```
 
-Four things that are easy to get wrong, each of which cost real time here:
+Five things that are easy to get wrong, each of which cost real time here:
 
-1. **POST with parameters in the query string and an empty body.** Not a JSON body. This is
-   what Python's `requests.post(url, params=...)` produces.
-2. **`Content-Length: 0` is mandatory.** Without it the server returns a fast HTTP 411.
-   `requests` sets it automatically; curl does not.
-3. **Only `Temptoken` and `User-Agent` are needed.** `Temptoken` is a client-generated UUID
-   with no server-side registration, so any UUID works. No `Authorization`, and explicitly
-   **no `ClientId` or `ClientSecret`**: the current app hardcodes such a pair, but these
-   endpoints do not require it, so there is no credential of theirs to reuse.
+1. **POST handlers need the body `{"a":"a"}` with `Content-Type: application/json`.** The
+   client builds it in `Base.addCommonHeaders()` via `addJson("a","a")`, so every POST
+   carries that same placeholder object. It is not a parameter carrier and its contents are
+   never read; it exists only because the client posts JSON.
+2. **An empty body is not universally accepted, and the difference is silent.**
+   `GetPoetsListWithPaging` and `GetContentTypeList` answer normally with `Content-Length: 0`
+   and no body, which is what made this look like a settled convention. `GetContentListWithPaging`
+   and `GetCoupletListWithPaging` instead **hang for ~36 s and close the connection**, which
+   is indistinguishable from a missing parameter. Send the body on every POST rather than
+   discovering per endpoint which tolerates its absence.
+3. **`temptoken` is the only header that matters.** It is a client-generated UUID with no
+   server-side registration, so any UUID works, and the client sends its device id. No
+   `Authorization` unless logged in, and explicitly **no `ClientId` or `ClientSecret`**: the
+   current app hardcodes such a pair, but these endpoints do not require it, so there is no
+   credential of theirs to reuse.
 4. **Use `--http1.1` for large responses.** The corpus-wide calls abort the HTTP/2 stream
    otherwise.
+5. **Corpus-wide calls are slow.** A `GetContentListWithPaging` page took 42 s against
+   `-m 25`, so a short timeout reads as a failure. Allow at least 60 s.
+
+Verified 2026-08-04: nazms corpus-wide returned `TC: 14365` with 50 items in 42 s using the
+body above, against an unconditional hang without it.
 
 ### The hang
 
-A missing required parameter, or an absent handler name, causes the server to **hang for 25
-to 47 seconds and then cancel the stream**. It does not return an error. This is the same
-behaviour documented as the `wordId` gotcha in
-[hindwi-dictionary-api.md](hindwi-dictionary-api.md), so it is a house pattern across
-Rekhta's stack rather than a quirk of one endpoint.
+A missing required parameter, an absent handler name, **or a missing request body on a
+handler that requires one**, causes the server to **hang for 25 to 47 seconds and then
+cancel the stream**. It does not return an error. This is the same behaviour documented as
+the `wordId` gotcha in [hindwi-dictionary-api.md](hindwi-dictionary-api.md), so it is a
+house pattern across Rekhta's stack rather than a quirk of one endpoint.
 
-Consequences: always pass the full parameter set including empty ones, always use `-m`, and
-never probe for handler names in bulk. Each miss holds a connection on their origin for the
-better part of a minute, which is worse for them than a successful request.
+The three causes are indistinguishable from the response, which is what makes this
+expensive: a body problem looks exactly like a parameter problem, and both look like a
+handler that does not exist. Sixty-four probes were spent here concluding the parameter set
+was wrong when the body was the fault.
+
+Consequences: always pass the full parameter set including empty ones, always send the JSON
+body on POST handlers, always use `-m`, and never probe in bulk. Each miss holds a
+connection on their origin for the better part of a minute, which is worse for them than a
+successful request.
+
+**Read the client before probing the server.** The decompiled client answers parameter,
+verb, and body questions definitively and for free, whereas the server answers them only by
+consuming a connection per guess and never says why. Every question in this section was
+settled in one pass over `com/example/sew/apis/` after the probing had already failed.
 
 ## Envelope
 
@@ -110,8 +150,8 @@ Verified means HTTP 200 with real data on 2026-08-04.
 | `GetYouTubeKey` | GET | none | `R` | verified, see warning below |
 | `GetPoetsListWithPaging` | POST | `lastFetchDate` `targetId` `pageIndex` `keyword` | `R.P[]` | verified |
 | `GetContentTypeList` | POST | `lastFetchDate` | `R[]` | verified, **filters** |
-| `GetContentListWithPaging` | POST | `poetId` `targetId` `contentTypeId` `sortBy` `pageIndex` `keyword` `lang` | `R.CS[]` | verified |
-| `GetCoupletListWithPaging` | POST | `poetId` `targetId` `contentTypeId` `sortBy` `pageIndex` `keyword` `lang` | `R.CD[]` | verified |
+| `GetContentListWithPaging` | POST | `targetId` `keyword` `poetId` `contentTypeId` `sortBy` `pageIndex` (`lang` page 2+ only) | `R.CS[]` | verified, **needs the JSON body** |
+| `GetCoupletListWithPaging` | POST | `targetId` `poetId` `keyword` `contentTypeId` `sortBy` `pageIndex` (`lang` page 2+ only) | `R.CD[]` | verified, **needs the JSON body** |
 | `GetAudioListByPoetIdWithPaging` | POST | `poetId` `keyword` `pageIndex` | `R.A[]` | verified |
 | `GetVideoListByPoetIdWithPaging` | POST | `poetId` `keyword` `pageIndex` | `R` | verified |
 | `GetPoetCompleteProfile` | POST | `poetId` `lang` | `R.{CH,EP,SS,PR,UL,CS}` | verified |
@@ -126,8 +166,8 @@ Verified means HTTP 200 with real data on 2026-08-04.
 | `SearchAllByType` | POST | `keyword` `lang` `type` | `R` | verified |
 | `GetShayariImagesWithSearch` | POST | `keyword` `lang` `targetIdSlug` `targetType` | `R` | verified, `TC` 3027 |
 | `GetShayariImageById` | POST | `lang` `shayariImgId` `shayariIngId` `targetIdSlug` | `R` | verified |
-| `GetWordMeaningByLang` | POST | `lang` `selectedWord` `word` | `R` | verified |
-| `GetGroupWordMeaningByLang` | POST | `lang` `selectedWord` `word` | `R` | verified |
+| `GetWordMeaningByLang` | POST | `lang` `word` `selectedWord` | `R` | verified, see the inversion below |
+| `GetGroupWordMeaningByLang` | POST | `lang` `word` `selectedWord` | `R` | verified, same inversion |
 | `GetPlattsDictionaryMeanings` | POST | `keyword` | `R` | verified |
 | `GetRekhtaDictionaryMeanings` | POST | `keyword` `lang` | `R` | live, returned null; params wrong |
 | `GetContentTypeTabByCollectionType` | POST | `collectionType` | `R` | verified |
@@ -512,14 +552,20 @@ Each word in a text tree carries `M`, e.g. `\1nn2` (a literal backslash, so it a
 `\\1nn2` in raw JSON and must be URL-encoded as `%5C1nn2`).
 
 ```bash
-curl -sS -m 25 --http1.1 -X POST \
-  -H 'Temptoken: <UUID>' -H 'User-Agent: Mozilla/5.0' -H 'Content-Length: 0' \
+curl -sS -m 60 --http1.1 -X POST \
+  -H 'temptoken: <UUID>' -H 'Content-Type: application/json' -H 'User-Agent: Mozilla/5.0' \
+  -d '{"a":"a"}' \
   'https://app-rekhta.rekhta.org/rekhta-api/v1/GetWordMeaningByLang?lang=1&word=%5C1nn2&selectedWord=hazaron'
 ```
 
 Returns the dictionary entry for that exact word: forms in three scripts, English, Hindi and
 Urdu meanings, and mp3/ogg pronunciation URLs. `GetGroupWordMeaningByLang` takes the same
 parameters and handles compound forms.
+
+**The two word parameters are inverted from their names.** In the client, `setWordCode()`
+writes the parameter **`word`**, which carries the `M` code such as `\1nn2`, while
+`setWord()` writes **`selectedWord`**, which carries the human-readable text. Passing the
+readable word as `word` is therefore wrong even though it reads correctly.
 
 This is what makes the corpus word-level annotated: every word of every poem joins to a
 dictionary entry and its audio.
@@ -639,6 +685,11 @@ Unverified or unknown:
 - What other handler names exist. The namespace is larger than any single client, and misses
   hang, so it cannot be enumerated safely by probing.
 - Whether `sortBy` accepts values above 1.
-- Rate limits. Nothing observed across roughly 75 requests, which is still far too small a
-  sample to conclude anything.
+- Rate limits, except that there is clearly *something*. On 2026-08-04 sixty-four
+  `GetContentListWithPaging` probes spaced 0.4 s apart, all of them hanging because the body
+  was missing, drove the host to answer **HTTP 503 to every request including `AppConfig`**.
+  It recovered on its own within a few minutes. Whether the trigger was the request rate or
+  the accumulation of held-open connections from the hangs is unknown, and the two are worth
+  distinguishing before any bulk run, because the second would mean a correct crawl is far
+  safer than that episode suggests.
 - The `world.rekhta.org/api/v1/forum/` surface, entirely unexplored.
