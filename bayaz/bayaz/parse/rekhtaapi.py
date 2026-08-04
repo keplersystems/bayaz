@@ -8,11 +8,12 @@ poetry join the dictionary at word level.
 """
 
 import json
+import re
 from urllib.parse import urlsplit
 
 from bayaz.corpus import Entity, Entry, Sense, Work
 from bayaz.parse import Parsed
-from bayaz.rekhta import query
+from bayaz.rekhta import query, text_tree
 
 VERSION = 1
 
@@ -52,21 +53,19 @@ def _text(row: dict, prefix: str) -> tuple[str | None, str | None, str | None]:
 def _lines(tree) -> list[list[tuple[str, str | None]]]:
     """The tree as lines of (word, code), in reading order.
 
-    Line structure is recovered by grouping: a node holding word leaves is a line, and
-    anything above it is a container, which avoids depending on key names that differ
-    between the content and couplet endpoints."""
+    The shape is stanza -> line -> word, and every level uses `W` for its children, so the
+    levels are told apart by type rather than by key: a word's `W` is the word itself as a
+    string, while a line's `W` is the list of them."""
     lines: list[list[tuple[str, str | None]]] = []
 
     def walk(node):
         if isinstance(node, dict):
-            words: list[tuple[str, str | None]] = []
+            children = node.get("W")
+            if isinstance(children, list) and any(isinstance(c, dict) and isinstance(c.get("W"), str) for c in children):
+                lines.append([(c["W"], c.get("M")) for c in children if isinstance(c.get("W"), str)])
+                return
             for value in node.values():
-                if isinstance(value, list) and all(isinstance(v, dict) and "W" in v for v in value) and value:
-                    words += [(v["W"], v.get("M")) for v in value]
-                else:
-                    walk(value)
-            if words:
-                lines.append(words)
+                walk(value)
         elif isinstance(node, list):
             for value in node:
                 walk(value)
@@ -78,32 +77,34 @@ def _lines(tree) -> list[list[tuple[str, str | None]]]:
 def _content(result: dict, params: dict) -> Parsed:
     content_id = params.get("contentId", "")
     lang = int(params.get("lang", "1"))
-    title = _text(result, "T")
     poet = result.get("Poet") or {}
 
+    # `CT` is the title in the requested script and `TS` the content type's slug, despite
+    # `T`-prefixed fields being titles everywhere else in this API.
     work = Work(
         site=SITE,
         slug=content_id,
-        work_type=result.get("CTS") or result.get("CT") or "content",
-        author_name=poet.get("NE") or result.get("PE"),
-        author_url=None,
-        source=result.get("SS") or None,
+        work_type=result.get("TS") or "content",
+        # The inlined poet uses PN/PI rather than the NE/NH/NU triple the poet endpoints
+        # return, so it carries one rendering in the requested script and its id.
+        author_name=poet.get("PN"),
+        author_url=poet.get("PI"),
+        source=result.get("CS") or None,
     )
-    work.title, work.title_hindi, work.title_urdu = title
-    work.title_translit = title[0]
+    title = (result.get("CT") or "").strip() or None
+    match lang:
+        case 2:
+            work.title_hindi = title
+        case 3:
+            work.title_urdu = title
+        case _:
+            work.title = work.title_translit = title
 
-    tree = result.get("CR")
-    if isinstance(tree, str):
-        try:
-            tree = json.loads(tree)
-        except json.JSONDecodeError:
-            tree = None
-
-    lines = _lines(tree)
+    lines = _lines(text_tree(result))
     body = "\n".join(" ".join(word for word, _ in line) for line in lines) or None
     setattr(work, f"body{_LANG_FIELD.get(lang, '')}" if lang != 1 else "body", body)
 
-    work.tags = [(tag.get("NE") or tag.get("NH") or "", None) for tag in result.get("Tags") or [] if tag.get("NE")]
+    work.tags = [(name, tag.get("TS")) for tag in result.get("Tags") or [] if (name := tag.get("TN"))]
 
     words = [
         (lang, line_ord, word_ord, word, code)
@@ -150,22 +151,43 @@ def _poet_list(result: dict) -> Parsed:
     return Parsed(entities=entities)
 
 
+# The script suffix whose text belongs to each requested definition language. All nine
+# M{n}{E,H,U} fields are present on every call, but their contents change with `lang`, so
+# taking only the matching suffix keeps the three languages distinct instead of storing the
+# same definition three times under different labels.
+_SENSE_SUFFIX = {1: "E", 2: "H", 3: "U"}
+
+_SENSE_FIELD = re.compile(r"^M(\d+)([EHU])$")
+
+
 def _word(result: dict, params: dict) -> Parsed:
     code = params.get("word", "")
-    lang = _LANG_CODE.get(int(params.get("lang", "1")), "en")
-    forms = _text(result, "W")
+    lang = int(params.get("lang", "1"))
     entry = Entry(
         site=SITE,
         slug=code,
-        headword=forms[0] or params.get("selectedWord"),
-        headword_hindi=forms[1],
-        headword_urdu=forms[2],
+        headword=result.get("E") or params.get("selectedWord"),
+        headword_hindi=result.get("H"),
+        headword_urdu=result.get("U"),
+        trivia=_origin(result),
     )
-    for field in ("ME", "MH", "MU"):
-        meaning = result.get(field)
-        if isinstance(meaning, str) and meaning.strip():
-            entry.senses.append(Sense(lang={"ME": "en", "MH": "hi", "MU": "ur"}[field], pos=None, definition=meaning.strip()))
-    if not entry.senses and isinstance(result.get("M"), str) and result["M"].strip():
-        entry.senses.append(Sense(lang=lang, pos=None, definition=result["M"].strip()))
+
+    suffix = _SENSE_SUFFIX.get(lang, "E")
+    numbered = []
+    for field, value in result.items():
+        match = _SENSE_FIELD.match(field)
+        if match and match.group(2) == suffix and isinstance(value, str) and value.strip():
+            numbered.append((int(match.group(1)), value.strip()))
+    entry.senses = [
+        Sense(lang=_LANG_CODE.get(lang, "en"), pos=result.get(f"P{suffix}") or None, definition=text)
+        for _, text in sorted(numbered)
+    ]
+
     entry.audio_url = next((result.get(k) for k in ("AMF", "AOF") if (result.get(k) or "").startswith("http")), None)
     return Parsed(entries=[entry])
+
+
+def _origin(result: dict) -> str | None:
+    origins = [result.get(f"O{s}") for s in ("E", "H", "U")]
+    named = [o.strip() for o in origins if isinstance(o, str) and o.strip()]
+    return f"Origin: {' / '.join(named)}" if named else None

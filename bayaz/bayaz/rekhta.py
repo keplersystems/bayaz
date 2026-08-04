@@ -24,6 +24,7 @@ called. Media urls that arrive inline on a content record are left in the stored
 rather than being downloaded.
 """
 
+import json
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
@@ -166,6 +167,20 @@ def _content_ids(rows: list[dict]) -> list[str]:
     return [row["I"] for row in rows if row.get("I")]
 
 
+def text_tree(result: dict):
+    """The word tree out of a content record.
+
+    `CR` arrives as a JSON-encoded string rather than an object, so it has to be decoded
+    before anything can walk it; reading it as-is silently yields nothing."""
+    tree = result.get("CR")
+    if isinstance(tree, str):
+        try:
+            return json.loads(tree)
+        except json.JSONDecodeError:
+            return None
+    return tree
+
+
 def word_codes(node, found: list[tuple[str, str]]) -> None:
     """Collect (code, readable) for every word in a text tree.
 
@@ -234,15 +249,19 @@ def discover(url: str, payload: dict) -> tuple[list[tuple[str, str]], list[str]]
                 pages += [(content_url(content_id, lang), "content") for lang in LANGS]
 
         case "content":
-            found: list[tuple[str, str]] = []
-            word_codes(result.get("CR"), found)
-            lang = int(params.get("lang", "1"))
-            seen = set()
-            for code, readable in found:
-                if code in seen:
-                    continue
-                seen.add(code)
-                pages.append((word_url(code, readable, lang), "word"))
+            # Word lookups are enqueued from the English pass only, since the codes are the
+            # same in every script and the three language calls are added here rather than
+            # once per script pass. `lang` selects the definition language, not just its
+            # rendering, so all three are genuinely different content.
+            if int(params.get("lang", "1")) == LANGS[0]:
+                found: list[tuple[str, str]] = []
+                word_codes(text_tree(result), found)
+                seen = set()
+                for code, readable in found:
+                    if code in seen:
+                        continue
+                    seen.add(code)
+                    pages += [(word_url(code, readable, lang), "word") for lang in LANGS]
             media += _media_urls(result)
 
         case "word" | "word-group":
