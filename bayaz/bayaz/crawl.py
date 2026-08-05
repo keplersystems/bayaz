@@ -91,8 +91,15 @@ class SiteCrawler:
         self.limit = limit
         self.retry_failed = retry_failed
         self._segments: dict[str, str] = {}
+        # The connection pool has to cover the in-flight ceiling. httpx keeps 20 alive by
+        # default, so every request beyond that opens a fresh TLS connection: a handshake
+        # their server pays for on every call, and latency we pay for on every call.
+        slots = max(config.CONCURRENCY, config.APP_CONCURRENCY)
         self._client = httpx.AsyncClient(
-            headers={"User-Agent": config.USER_AGENT}, follow_redirects=True, timeout=config.TIMEOUT
+            headers={"User-Agent": config.USER_AGENT},
+            follow_redirects=True,
+            timeout=config.TIMEOUT,
+            limits=httpx.Limits(max_connections=slots + 10, max_keepalive_connections=slots),
         )
         self.fetched = 0
         self.failed = 0
