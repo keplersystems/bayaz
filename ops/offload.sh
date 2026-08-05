@@ -20,7 +20,7 @@ while true; do
 
   if $UV run python ops/parsed_files.py > /tmp/parsed_list.txt 2>/dev/null && [ -s /tmp/parsed_list.txt ]; then
     rclone move raw "$BAYAZ_S3/raw" --files-from /tmp/parsed_list.txt \
-      --transfers 8 --no-traverse --no-check-dest --log-level ERROR
+      --transfers 32 --no-traverse --no-check-dest --log-level ERROR
     find raw -type d -empty -delete 2>/dev/null
   fi
 
