@@ -5,8 +5,8 @@ mistake costs a re-parse of local files, never a re-crawl. Crawl-time discovery 
 to what the manifest cannot be rebuilt from later — paging fragments, audio urls, and on
 the platform sites the content links their stale sitemaps miss.
 
-Sites crawl in parallel, paced per host rather than per site: the gate spaces request
-starts REQUEST_DELAY apart while CONCURRENCY requests may be in flight, so slow responses
+Sites crawl in parallel, paced per origin rather than per site: each origin's gate spaces
+request starts its own delay apart while a fixed number may be in flight, so slow responses
 overlap without the request rate ever rising. Two sites answering from one machine share
 that budget, which is what keeps the dictionary APIs off double rate. Every page's outcome is committed as it happens;
 stopping the process at any point loses nothing but the requests in flight.
@@ -14,6 +14,7 @@ stopping the process at any point loses nothing but the requests in flight.
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 import httpx
@@ -41,25 +42,42 @@ class FetchError(RuntimeError):
 # Hosts that are one machine. Rekhta's three app backends all answer from 14.140.111.5,
 # an origin IIS box with no CDN in front of it, so pacing them by hostname would hand one
 # server three budgets. The websites are separate addresses and keep their own.
+@dataclass(frozen=True)
+class Origin:
+    key: str
+    delay: float
+    concurrency: int
+
+
+_REKHTA_APP = Origin("rekhta-app", config.APP_REQUEST_DELAY, config.APP_CONCURRENCY)
 _ORIGIN_GROUPS = {
-    "app-rekhta.rekhta.org": "rekhta-app",
-    "app-rekhta-dictionary.rekhta.org": "rekhta-app",
-    "world.rekhta.org": "rekhta-app",
+    "app-rekhta.rekhta.org": _REKHTA_APP,
+    "app-rekhta-dictionary.rekhta.org": _REKHTA_APP,
+    "world.rekhta.org": _REKHTA_APP,
 }
+
+
+class Gate:
+    """One origin's budget: request starts spaced `delay` apart, `concurrency` in flight."""
+
+    def __init__(self, origin: Origin):
+        self.delay = origin.delay
+        self.lock = asyncio.Lock()
+        self.slots = asyncio.Semaphore(origin.concurrency)
 
 
 class Pacer:
     """One budget per origin, shared across sites."""
 
     def __init__(self):
-        self._gates: dict[str, tuple[asyncio.Lock, asyncio.Semaphore]] = {}
+        self._gates: dict[str, Gate] = {}
 
-    def for_url(self, url: str) -> tuple[asyncio.Lock, asyncio.Semaphore]:
+    def for_url(self, url: str) -> Gate:
         host = urlsplit(url).netloc
-        key = _ORIGIN_GROUPS.get(host, host)
-        if key not in self._gates:
-            self._gates[key] = (asyncio.Lock(), asyncio.Semaphore(config.CONCURRENCY))
-        return self._gates[key]
+        origin = _ORIGIN_GROUPS.get(host) or Origin(host, config.REQUEST_DELAY, config.CONCURRENCY)
+        if origin.key not in self._gates:
+            self._gates[origin.key] = Gate(origin)
+        return self._gates[origin.key]
 
 
 class SiteCrawler:
@@ -103,8 +121,8 @@ class SiteCrawler:
         return max(0, self.limit - self.fetched - self.failed)
 
     async def _one(self, page: PageRef):
-        gate, slots = self.pacer.for_url(page.url)
-        async with slots:
+        gate = self.pacer.for_url(page.url)
+        async with gate.slots:
             try:
                 response = await self._fetch(page.url, gate, request_for(self.site.name, page.kind))
             except FetchError as e:
@@ -125,10 +143,10 @@ class SiteCrawler:
         if self.fetched % _PROGRESS_EVERY == 0:
             logger.info(f"{self.site.name}: {self.fetched} fetched this run")
 
-    async def _fetch(self, url: str, gate: asyncio.Lock, spec: Request) -> httpx.Response:
+    async def _fetch(self, url: str, gate: Gate, spec: Request) -> httpx.Response:
         for attempt, backoff in enumerate(_BACKOFF, start=1):
-            async with gate:
-                await asyncio.sleep(config.REQUEST_DELAY)
+            async with gate.lock:
+                await asyncio.sleep(gate.delay)
             try:
                 response = await self._client.request(
                     spec.method, url, headers=spec.headers(), json=spec.body

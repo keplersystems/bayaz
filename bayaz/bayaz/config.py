@@ -21,5 +21,10 @@ USER_AGENT = os.getenv(
 # nonprofit's servers; the crawl taking days is the accepted cost of not hammering them.
 REQUEST_DELAY = float(os.getenv("BAYAZ_REQUEST_DELAY", "0.35"))
 CONCURRENCY = int(os.getenv("BAYAZ_CONCURRENCY", "3"))
+
+# Rekhta's app origin answers ~5 KB of JSON where the websites serve 90-460 KB pages, so an
+# identical request rate costs it a fraction of the bytes. It carries its own faster budget.
+APP_REQUEST_DELAY = float(os.getenv("BAYAZ_APP_REQUEST_DELAY", "0.20"))
+APP_CONCURRENCY = int(os.getenv("BAYAZ_APP_CONCURRENCY", "6"))
 TIMEOUT = float(os.getenv("BAYAZ_TIMEOUT", "30"))
 MAX_ATTEMPTS = int(os.getenv("BAYAZ_MAX_ATTEMPTS", "3"))
