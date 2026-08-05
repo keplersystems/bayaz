@@ -250,9 +250,14 @@ def discover(url: str, payload: dict) -> tuple[list[tuple[str, str]], list[str]]
 
         case "content":
             # Word lookups are enqueued from the English pass only, since the codes are the
-            # same in every script and the three language calls are added here rather than
-            # once per script pass. `lang` selects the definition language, not just its
-            # rendering, so all three are genuinely different content.
+            # same in every script.
+            #
+            # One language, not three. `lang` does change the definitions, but this endpoint
+            # returns a twelfth of what the dictionary holds for the same word, and its `I`
+            # is the dictionary's own entry GUID: verified on `\1nn2`, whose I matches
+            # BI.I from GetWordDetailsByIdSlug(hazaaron), identically across all three langs.
+            # So the meanings are already captured, richer, by the dictionary crawl; what is
+            # only available here is the code -> entry mapping, and one call resolves it.
             if int(params.get("lang", "1")) == LANGS[0]:
                 found: list[tuple[str, str]] = []
                 word_codes(text_tree(result), found)
@@ -261,7 +266,7 @@ def discover(url: str, payload: dict) -> tuple[list[tuple[str, str]], list[str]]
                     if code in seen:
                         continue
                     seen.add(code)
-                    pages += [(word_url(code, readable, lang), "word") for lang in LANGS]
+                    pages.append((word_url(code, readable, LANGS[0]), "word"))
             media += _media_urls(result)
 
         case "word" | "word-group":
