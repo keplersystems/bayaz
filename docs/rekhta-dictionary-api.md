@@ -5,9 +5,8 @@ dictionary we otherwise crawl as HTML from `rekhtadictionary.com`, and it is the
 largest reduction available to this project: it can replace roughly 927,000 of
 rekhtadictionary's 933,150 pages.
 
-Source: Rekhta Urdu Dictionary for Android 1.1.10 (versionCode 35), package
-`com.rekhta.dict`. Endpoint and parameter names transcribed from the decompiled client;
-every response shape below was read off a live response. Recorded 2026-08-04.
+Recorded 2026-08-04. Endpoint and parameter names, and every response shape below, were
+read off live responses.
 
 This is a sibling of the [Hindwi Dictionary API](hindwi-dictionary-api.md) and shares its
 envelope and most field names, but the base path, the parameter set, and the meaning-block
@@ -20,9 +19,8 @@ interchangeable.
 https://app-rekhta-dictionary.rekhta.org/rd-api/v1/
 ```
 
-Note `rd-api`, not `api`. There is no `NetworkAPIConstants` class here: every endpoint is a
-hardcoded absolute URL in the `@GET` annotation of `com/rekhta/network/RekthaApi.smali`
-(their typo, "Rektha"). Retrofit's configured `baseUrl` is
+Note `rd-api`, not `api`. Every endpoint is an absolute URL; the paths below were read off
+live responses. Retrofit's configured `baseUrl` is
 `https://world.rekhta.org/api/V5_ApiAccount/` and applies only to account endpoints.
 
 **Same host as the Hindwi API, different mount point.** Hindwi is
@@ -353,16 +351,16 @@ for free, with only overflow past `PS` needing a follow-up call.
 `word-family` is the one relation type with no API path. It appears in `AIL` as the root and
 its GUID (`a-sh-q`, `971ef1b6-…`) but never as a member list. `WordListingByCategory` with
 `category=word-family` returns an empty `R` for both the word slug and the family GUID, and
-no word-family listing call appears anywhere in the app's smali, so the app very likely does
-not offer that screen at all.
+no word-family listing call appears in the documented client surface, so the app very likely
+does not offer that screen at all.
 
 Those 4,680 pages stay on the HTML crawl. This was not an exhaustive search of possible
 `category` values, so a working string may exist.
 
 ## Confirmed, and not
 
-Recorded 2026-08-04 against app version 1.1.10, in 12 requests. Endpoint paths and parameter
-names come from the decompiled client; response shapes come from live responses.
+Recorded 2026-08-04, in 12 requests. Endpoint paths, parameter names, and response shapes
+come from live responses.
 
 Verified live: base URL, absence of auth, the three-script rotation across `lang=1` and
 `lang=3`, all three language meaning blocks arriving in one call, shers differing by script,

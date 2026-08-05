@@ -65,7 +65,7 @@ Parser = Callable[[str, str, str], Parsed]  # (site, url, html) -> Parsed
 
 
 def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
-    from bayaz.parse import dictapi, platform, rekhtaapi, rekhtadict
+    from bayaz.parse import dictapi, platform, rekhtaapi, rekhtadict, taglist
 
     table: dict[tuple[str, str], tuple[Parser, int]] = {}
     for kind in ("word", "synonym", "antonym", "compound", "idiom", "proverb", "word-family", "tag", "partial"):
@@ -73,12 +73,24 @@ def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
     for site in ("hindwi", "sufinama"):
         for kind in ("dict", "work", "entity"):
             table[(site, kind)] = (platform.parse, platform.VERSION)
+    for site in ("hindwi", "sufinama"):
+        # Tag pages and their paging fragments share a template and a parser: the fragment
+        # is the same list of sections without the surrounding page.
+        for kind in ("tag", "tag-page"):
+            table[(site, kind)] = (taglist.parse, taglist.VERSION)
     table[("rekhtadictionary", "word-api")] = (dictapi.parse, dictapi.VERSION)
     table[("rekhtadictionary", "wordlist-api")] = (dictapi.parse, dictapi.VERSION)
     table[("hindwi", "dict-api")] = (dictapi.parse, dictapi.VERSION)
     for kind in ("content", "poet", "poets", "word", "word-group"):
         table[("rekhta", kind)] = (rekhtaapi.parse, rekhtaapi.VERSION)
     return table
+
+
+def parsed_kinds() -> set[tuple[str, str]]:
+    """The (site, kind) pairs some parser consumes. Anything outside this set is archived
+    but never enters the corpus, so callers that wait on parse state must treat it as done
+    rather than wait forever."""
+    return set(_registry())
 
 
 async def _apply(corpus: Corpus, result: Parsed, site: str):

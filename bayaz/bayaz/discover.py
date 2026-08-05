@@ -5,6 +5,10 @@ Three shapes:
 - Paging fragments (rekhtadictionary): listing sections load further entries through GET
   /PartialWordLoading fragments. A fragment carries no next-button, so each fragment that
   still contains links enqueues the next index, and the first empty one ends the chain.
+- Gathered listings (platform sites): a tag page holds only the first 50 of its works, and
+  for the short forms those works have no page of their own, so everything past the first
+  page exists solely in /CollectionLoading fragments. Chained the same way, ending on the
+  first fragment with no sections.
 - Audio: pronunciation files, present either as <audio> sources or as data-srcid GUIDs the
   site's JS turns into CDN urls. Recorded into media for a later download job.
 - Content links (platform sites): their sitemaps are months stale, so links whose first
@@ -54,6 +58,20 @@ def discover(site: Site, segments: dict[str, str], page: PageRef, body: str) -> 
         if tree.css_first("a[href]"):
             found.pages.append(_ref(site, _next_fragment(page.url), "partial"))
         return found
+
+    if page.kind.endswith("-page"):
+        # Same idea for gathered listings, but keyed on sections rather than links, since a
+        # /CollectionLoading fragment always carries navigation chrome even when it is spent.
+        if tree.css_first(".sherSection"):
+            found.pages.append(_ref(site, _next_fragment(page.url), page.kind))
+        return found
+
+    if page.kind in site.gathered:
+        found.pages.extend(
+            _ref(site, urljoin(page.url, data_url), f"{page.kind}-page")
+            for node in tree.css("[data-url]")
+            if "CollectionLoading" in (data_url := node.attributes.get("data-url") or "")
+        )
 
     if page.kind in site.paginated:
         found.pages.extend(

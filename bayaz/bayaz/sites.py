@@ -26,6 +26,10 @@ class Site:
     discover_links: bool = False
     # Kinds whose pages page their listings through /PartialWordLoading fragments.
     paginated: frozenset[str] = field(default_factory=frozenset)
+    # Kinds whose listings page through /CollectionLoading fragments and whose items are the
+    # content itself rather than links to it. Their first page holds only 50 of them, and the
+    # rest exist nowhere else, so the fragments have to be captured to hold the archive.
+    gathered: frozenset[str] = field(default_factory=frozenset)
 
 
 REKHTA_DICTIONARY = Site(
@@ -68,6 +72,7 @@ HINDWI = Site(
     kinds=_PLATFORM_KINDS,
     excluded=_EBOOKS,
     discover_links=True,
+    gathered=frozenset({"tag"}),
 )
 
 SUFINAMA = Site(
@@ -77,6 +82,7 @@ SUFINAMA = Site(
     kinds=_PLATFORM_KINDS,
     excluded=_EBOOKS,
     discover_links=True,
+    gathered=frozenset({"tag"}),
 )
 
 # rekhta.org is reached entirely through its mobile API, so it has no sitemap index and no

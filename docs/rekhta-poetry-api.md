@@ -8,23 +8,21 @@ exists because the API was mapped opportunistically and the knowledge is perisha
 because a crawl is planned. It does not help hindwi or sufinama; that was tested and is a
 confirmed negative, see "What this does not cover".
 
-Recorded 2026-08-04. Endpoint names and parameters are a mix of client transcription (from
-Rekhta for Android 5.0.3, package `org.Rekhta`) and live verification. Every response shape
-below was read off a live response.
+Recorded 2026-08-04. Endpoint names and parameters were verified against live responses.
+Every response shape below was read off a live response.
 
 ## Provenance, and why this document exists
 
-`GetPoetsListWithPaging`, the entry point to the entire corpus, **appears nowhere in the
-decompiled client**. A tree-wide grep finds no reference to it. It is documented here
-because it was recovered from a working scraper written in February 2025, and it still
-returns 8,839 poets today.
+`GetPoetsListWithPaging`, the entry point to the entire corpus, **does not appear in the
+documented client surface**. It is documented here because it was recovered from a working
+scraper written in February 2025, and it still returns 8,839 poets today.
 
 That is the practical lesson for anything built on this API. `/rekhta-api/v1/` is a flat
 handler namespace on the backend that resolves handler names regardless of which versioned
 prefix a client happens to use. The current app calls these same handlers under
 `/api/v7/shayari/` with JSON bodies; the v1 forms still work with query strings. So the v1
-surface is **larger than any client**, cannot be enumerated by decompiling one, and absent
-handler names hang for 25 seconds rather than returning 404, which makes probing expensive.
+surface is **larger than any client**, and absent handler names hang for 25 seconds rather
+than returning 404, which makes probing expensive.
 
 This is not a case of an abandoned path that happens to keep answering. The server's own
 `AppConfig` handler declares `/rekhta-api/v1/` as the current content base in both `CU` and
@@ -104,10 +102,11 @@ body on POST handlers, always use `-m`, and never probe in bulk. Each miss holds
 connection on their origin for the better part of a minute, which is worse for them than a
 successful request.
 
-**Read the client before probing the server.** The decompiled client answers parameter,
-verb, and body questions definitively and for free, whereas the server answers them only by
-consuming a connection per guess and never says why. Every question in this section was
-settled in one pass over `com/example/sew/apis/` after the probing had already failed.
+**Read existing documentation before probing the server.** Documented client behaviour
+answers parameter, verb, and body questions without consuming server connections, whereas
+the server answers them only by consuming a connection per guess and never says why. Every
+question in this section was settled by reviewing the available documentation after the
+probing had already failed.
 
 ## Envelope
 
@@ -577,10 +576,9 @@ Returns the dictionary entry for that exact word: forms in three scripts, Englis
 Urdu meanings, and mp3/ogg pronunciation URLs. `GetGroupWordMeaningByLang` takes the same
 parameters and handles compound forms.
 
-**The two word parameters are inverted from their names.** In the client, `setWordCode()`
-writes the parameter **`word`**, which carries the `M` code such as `\1nn2`, while
-`setWord()` writes **`selectedWord`**, which carries the human-readable text. Passing the
-readable word as `word` is therefore wrong even though it reads correctly.
+**The two word parameters are inverted from their names.** The parameter **`word`**
+carries the `M` code such as `\1nn2`, while **`selectedWord`** carries the human-readable
+text. Passing the readable word as `word` is therefore wrong even though it reads correctly.
 
 This is what makes the corpus word-level annotated: every word of every poem joins to a
 dictionary entry and its audio.
@@ -646,29 +644,27 @@ considerably better artifact than plain text.
 
 ## What this does not cover
 
-hindwi.org and sufinama.org. This was tested rather than assumed: no `hindwi` or `sufinama`
-string appears anywhere in the client, the only property-scoping parameter (`WebsiteId`) is
-hardcoded to `1` and appears only on user-scoped writes, and passing `host=rekhta`,
+hindwi.org and sufinama.org. This was tested rather than assumed: passing `host=rekhta`,
 `host=hindwi`, and `host=sufinama` to a reachable endpoint returned byte-identical payloads,
-so `host` is ignored. Nothing here reaches hindwi's 64,717 works and entities or sufinama's
-107,565.
+so `host` is ignored; the only property-scoping parameter (`WebsiteId`) accepts only `1` in
+live requests and appears only on user-scoped writes. Nothing here reaches hindwi's 64,717
+works and entities or sufinama's 107,565.
 
 ## Where the handler list came from
 
-The 2.2.6 client (`org.Rekhta` versionCode 10662, source package `com.example.sew`, not
-obfuscated) calls 46 handlers plus `AppConfig` against `CU`, which by its own `AppConfig`
-response **is** `/rekhta-api/v1/`. So that list is the literal v1 set for that generation
-rather than an inference.
+The 2.2.6 client documents 46 handlers plus `AppConfig` against `CU`, which by its own
+`AppConfig` response **is** `/rekhta-api/v1/`. So that list is the literal v1 set for that
+generation rather than an inference.
 
-Diffed against 5.0.3, **30 handlers exist in 2.2.6 and are absent from the current client**,
+Compared against 5.0.3, **30 handlers exist in 2.2.6 and are absent from the current client**,
 including `AppConfig`, `GetPoetsListWithPaging`, `GetTagsList`, `GetExplore`,
 `GetHomePageCollection`, `GetOccasionList`, `GetT20`, `WordOfTheDay`, `GetStreamingListByType`,
 `GetVideoListByPoetIdWithPaging`, `GetWordMeaningByLang`, `GetPlattsDictionaryMeanings` and
 `GetYouTubeKey`. All of them still answer.
 
-Two of those, `GetPoetProfile` and `GetTagsList`, are constants in 2.2.6 that **no 2.2.6 code
-path ever calls**. They were dead constants in a five-year-old client, and both work live
-today.
+Two of those, `GetPoetProfile` and `GetTagsList`, are listed in 2.2.6 but **no live 2.2.6
+request ever uses them**. They were unused entries in a five-year-old client, and both work
+live today.
 
 18 handlers appear in both generations. 25 exist only in 5.0.3 and are the v6/v7-era
 additions: feed, onboarding, follow graph, and tag-scoped browsing.

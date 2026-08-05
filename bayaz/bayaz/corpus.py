@@ -84,6 +84,9 @@ CREATE TABLE IF NOT EXISTS works (
     body TEXT,
     body_hindi TEXT,
     body_urdu TEXT,
+    -- The site's own prose gloss of a verse, carried on tag pages beside the couplet.
+    -- Kept out of `body` so the verse stays the verse.
+    explanation TEXT,
     source TEXT,
     UNIQUE (site, slug)
 );
@@ -192,6 +195,7 @@ class Work:
     body: str | None = None
     body_hindi: str | None = None
     body_urdu: str | None = None
+    explanation: str | None = None
     source: str | None = None
     tags: list[tuple[str, str | None]] = field(default_factory=list)  # (tag, url)
 
@@ -332,8 +336,8 @@ class Corpus:
         await self._connection.execute(
             """
             INSERT INTO works (site, slug, work_type, title, title_translit, title_hindi, title_urdu,
-                               author_name, author_url, body, body_hindi, body_urdu, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               author_name, author_url, body, body_hindi, body_urdu, explanation, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(site, slug) DO UPDATE SET
                 work_type = excluded.work_type,
                 title = COALESCE(excluded.title, title),
@@ -345,6 +349,7 @@ class Corpus:
                 body = COALESCE(excluded.body, body),
                 body_hindi = COALESCE(excluded.body_hindi, body_hindi),
                 body_urdu = COALESCE(excluded.body_urdu, body_urdu),
+                explanation = COALESCE(excluded.explanation, explanation),
                 source = COALESCE(excluded.source, source)
             """,
             (
@@ -360,6 +365,7 @@ class Corpus:
                 work.body,
                 work.body_hindi,
                 work.body_urdu,
+                work.explanation,
                 work.source,
             ),
         )

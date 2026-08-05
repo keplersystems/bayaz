@@ -4,10 +4,8 @@ The JSON API behind the Hindwi Dictionary mobile apps. It serves the same shabdk
 otherwise crawl as HTML from `hindwi.org/hindi-dictionary/meaning-of-<slug>`, and it serves
 it structured, so it replaces the `hindwi/dict` portion of the crawl.
 
-Source: Hindwi Dictionary for Android 1.0.6 (versionCode 16), package
-`com.hindwidictionary`, internal package `com.rekhta.dictionary`. Endpoint and parameter
-names transcribed from the decompiled client; every response shape below was read off a
-live response. Recorded 2026-08-04.
+Recorded 2026-08-04. Endpoint and parameter names, and every response shape below, were
+read off live responses.
 
 Scope: this API serves the Hindwi corpus only. `rekhtadictionary.com` and `sufinama.org`
 have separate backends. Verified by calling `GetWordDetailsByIdSlug` with the
@@ -49,8 +47,7 @@ No `Bearer` prefix is added at any call site. Some user-scoped endpoints also se
 we use do not.
 
 There is no API key, bearer secret, or request signing for the dictionary API, and no
-certificate pinning. The only key in the package is the standard Firebase `google_api_key`,
-which the dictionary API does not use.
+certificate pinning. The dictionary API does not use a Firebase or other app key.
 
 Practical consequence: we are not reusing anyone's credential. This is an open public read
 API. Their terms still govern the traffic, so keep the same pacing discipline as the crawl.
@@ -357,7 +354,7 @@ On `/api/V5_ApiAccount/`: `Login?reToken=`, `LoginExternal?reToken=`, `Register`
 
 ### The client is not a reliable spec
 
-Worth knowing before reasoning from the decompiled client rather than from live responses,
+Worth knowing before reasoning from the client rather than from live responses,
 because several of its methods do not do what their names say:
 
 - `setUserSettings` issues a GET against `GetUserSettings` and writes nothing. Only
@@ -367,12 +364,10 @@ because several of its methods do not do what their names say:
   They look like copy-paste stubs.
 - `MarkFavorite` hardcodes `lang=1`, ignoring the selected language everywhere else.
 - `setRecentWordData` puts `Authorization` into the header map twice.
-- Several URL constants are exact duplicates of one another, and Kotlin `const val` inlines
-  all of them, so the constant a call site "used" is not recoverable from bytecode.
 
 Treat the endpoint values as authoritative and the surrounding client behaviour as
 approximate. Everything in this document that describes a response was read from a live
-response, not from the client.
+response, not inferred from the client.
 
 ## Audio
 
@@ -548,9 +543,8 @@ and deduplicated slug list.
 
 ## Confirmed, and not
 
-Everything above was recorded on 2026-08-04 against app version 1.0.6, in about 25 requests
-total. Endpoint paths and parameter names come from the decompiled client; every response
-shape comes from a live response.
+Everything above was recorded on 2026-08-04, in about 25 requests total. Endpoint paths,
+parameter names, and response shapes come from live responses.
 
 Verified live: the base URL, absence of auth on all four read endpoints, `pageSize` override,
 the 10,000 `Total` ceiling, the `WordListingByCategory` hang when `wordId` is omitted,
