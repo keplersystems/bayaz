@@ -97,8 +97,11 @@ All in the `bayaz` library:
 
 - `sitemaps.py` — reads each site's sitemap index; idempotent. Also derives the
   path-segment → kind table that link discovery classifies against.
-- `crawl.py` — the sites crawl in parallel, each behind its own pacing gate
-  (request starts spaced `BAYAZ_REQUEST_DELAY` apart, `BAYAZ_CONCURRENCY` in flight).
+- `crawl.py` — the sites crawl in parallel, each behind a pacing gate keyed on origin
+  rather than site, so hosts that share one machine share one budget
+  (`BAYAZ_REQUEST_DELAY` between request starts, `BAYAZ_CONCURRENCY` in flight). Rekhta's
+  app backends answer ~5 KB of JSON where the websites serve 90-460 KB pages, so they get
+  their own faster budget via `BAYAZ_APP_REQUEST_DELAY` and `BAYAZ_APP_CONCURRENCY`.
 - `discover.py` — captured pages enqueue what only they know about: `/PartialWordLoading`
   paging fragments (rekhtadictionary), pronunciation audio urls, and on hindwi/sufinama
   the content links their stale sitemaps miss.
