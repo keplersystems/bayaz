@@ -33,6 +33,19 @@ from bayaz.request import REKHTA_GET, REKHTA_POST, Request
 SITE = "rekhta"
 BASE = "https://app-rekhta.rekhta.org/rekhta-api/v1"
 
+# The listing handlers moved to a v7 base when the client went 5.0.3, and the v1 copies were
+# retired rather than kept as aliases: they now accept the connection, hold it for ~35 s and
+# close without answering, which reads exactly like a missing parameter and not like a
+# removal. Everything else in ENDPOINTS is still served from v1 by the same host.
+LISTING_BASE = "https://app-rekhta.rekhta.org/api/v7/shayari"
+_LISTING_KINDS = frozenset({"content-list", "couplet-list"})
+
+# Verified as not load-bearing, sent because the client sends them and matching it is free.
+CLIENT_HEADERS = {
+    "ClientId": "SxahObYgQ7SOhhwvmsrG3w",
+    "ClientSecret": "ukeEavSwDpIYsfzuPPtfu9Ht2EbtZOma",
+}
+
 # Page size is fixed server-side; TC carries a genuine total, so paging is arithmetic
 # rather than a walk until empty.
 PAGE_SIZE = 50
@@ -65,12 +78,17 @@ _GET_KINDS = frozenset({"content"})
 ENUMERATION_KINDS = ("content-types", "poets", "content-list", "couplet-list", "tags")
 
 
+REKHTA_LISTING = Request(method="POST", body={"a": "a"}, temptoken=True, extra_headers=CLIENT_HEADERS)
+
+
 def request_for_kind(kind: str) -> Request:
+    if kind in _LISTING_KINDS:
+        return REKHTA_LISTING
     return REKHTA_GET if kind in _GET_KINDS else REKHTA_POST
 
 
-def _url(endpoint: str, params: dict[str, str]) -> str:
-    return f"{BASE}/{endpoint}?{urlencode(sorted(params.items()))}"
+def _url(endpoint: str, params: dict[str, str], base: str = BASE) -> str:
+    return f"{base}/{endpoint}?{urlencode(sorted(params.items()))}"
 
 
 def query(url: str) -> dict[str, str]:
@@ -111,7 +129,12 @@ def listing_url(content_type_id: str, page: int, *, fragments: bool, poet_id: st
             "contentTypeId": content_type_id,
             "sortBy": SORT_POPULARITY,
             "pageIndex": str(page),
+            # Required on v7 even for page 1, where v1 accepted its absence. Omitting it
+            # produces the same silent hold-and-close as a wrong base, so the two failure
+            # modes are indistinguishable from the client side.
+            "lang": str(LANGS[0]),
         },
+        base=LISTING_BASE,
     )
 
 
