@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS pages (
 );
 CREATE INDEX IF NOT EXISTS idx_pages_site_status ON pages(site, status);
 CREATE INDEX IF NOT EXISTS idx_pages_site_kind ON pages(site, kind);
+-- Looked up once per fetch to end paging chains, so it cannot be a scan of 2.5M rows.
+CREATE INDEX IF NOT EXISTS idx_pages_content ON pages(site, kind, sha256);
 
 -- Pronunciation audio and any other media the captured pages reference. Recorded now,
 -- downloaded by a later job: the urls are in the raw HTML too, but re-deriving them
@@ -197,6 +199,18 @@ class Database:
             (site, kind),
         )
         return [row["url"] for row in await cursor.fetchall()]
+
+    async def seen_content(self, site: str, kind: str, sha256: str) -> bool:
+        """Whether this exact body was already captured for this site and kind.
+
+        Used to end paging chains. A spent pager here does not answer empty: rekhtadictionary
+        serves the same fragment for every `pageIndex` past the last real one, so identical
+        content is the only signal that a chain has run out. One chain reached pageIndex 7,911
+        before this existed."""
+        cursor = await self._connection.execute(
+            "SELECT 1 FROM pages WHERE site = ? AND kind = ? AND sha256 = ? LIMIT 1", (site, kind, sha256)
+        )
+        return await cursor.fetchone() is not None
 
     async def mark_fetched(self, url: str, http_status: int, sha256: str, size: int):
         await self._connection.execute(

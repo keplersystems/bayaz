@@ -142,6 +142,15 @@ class SiteCrawler:
         # the loop they stall every site's fetch handling, not just this one's.
         sha256, size = await asyncio.to_thread(rawstore.write, self.site.name, page.url, response.text, page.kind)
         found = await asyncio.to_thread(discover, self.site, self._segments, page, response.text)
+
+        # A pager that repeats itself has run out. These sites do not answer an exhausted
+        # listing with an empty body; they serve the last page again for every further index,
+        # so "this fragment still has content" cannot end a chain and identical content is the
+        # only marker that works. Only the chain's own continuation is dropped, since whatever
+        # else the page references is still worth having.
+        if found.pages and await self.db.seen_content(self.site.name, page.kind, sha256):
+            found.pages = [ref for ref in found.pages if ref.kind != page.kind]
+
         await self.db.add_pages(found.pages)
         await self.db.add_media(self.site.name, found.media, page.url)
         await self.db.mark_fetched(page.url, response.status_code, sha256, size)
