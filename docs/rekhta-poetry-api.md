@@ -3,13 +3,15 @@
 The JSON API behind rekhta.org's poetry corpus: poets, ghazals, nazms, couplets, and
 recitation audio.
 
-**Scope note.** rekhta.org is currently deferred in bayaz (see the README). This document
-exists because the API was mapped opportunistically and the knowledge is perishable, not
-because a crawl is planned. It does not help hindwi or sufinama; that was tested and is a
-confirmed negative, see "What this does not cover".
+**Scope note.** bayaz crawls rekhta.org through this API as of 2026-08-06, so the document is
+now load-bearing rather than a record of opportunistic mapping. It does not help hindwi or
+sufinama; that was tested and is a confirmed negative, see "What this does not cover".
 
-Recorded 2026-08-04. Endpoint names and parameters were verified against live responses.
-Every response shape below was read off a live response.
+Recorded 2026-08-04, revised 2026-08-06 after three handlers were retired from the v1 base
+mid-crawl. Endpoint names, parameters and response shapes were verified against live
+responses. Where 2026-08-04 findings were later falsified, the original claim is kept
+alongside the correction rather than quietly replaced, because the way this API fails makes
+a wrong conclusion cheap to reach twice.
 
 ## Provenance, and why this document exists
 
@@ -19,18 +21,84 @@ scraper written in February 2025, and it still returns 8,839 poets today.
 
 That is the practical lesson for anything built on this API. `/rekhta-api/v1/` is a flat
 handler namespace on the backend that resolves handler names regardless of which versioned
-prefix a client happens to use. The current app calls these same handlers under
-`/api/v7/shayari/` with JSON bodies; the v1 forms still work with query strings. So the v1
-surface is **larger than any client**, and absent handler names hang for 25 seconds rather
-than returning 404, which makes probing expensive.
+prefix a client happens to use. So the v1 surface is **larger than any client**, and absent
+handler names hang for 25 seconds rather than returning 404, which makes probing expensive.
 
-This is not a case of an abandoned path that happens to keep answering. The server's own
-`AppConfig` handler declares `/rekhta-api/v1/` as the current content base in both `CU` and
-`APU`, so v1 is advertised, not merely tolerated. What the client stopped using and what the
-backend still considers current are two different things.
+> **Corrected 2026-08-06.** This section previously argued that because `AppConfig` declares
+> `/rekhta-api/v1/` as the current base in `CU` and `APU`, v1 was advertised rather than
+> merely tolerated, and that the v1 forms of the handlers the 5.0.3 client had moved would
+> keep working. That is now false for a specific set of them. Between 09:23 and 10:20 on
+> 2026-08-06, mid-crawl, three listing handlers stopped answering under v1 while every other
+> v1 handler kept serving normally. See [The v1 listing retirement](#the-v1-listing-retirement).
+>
+> `AppConfig` still advertises v1, and most of the surface still works, so the namespace
+> argument holds in general. It is not a guarantee per handler, and a handler can be retired
+> from under a running crawl with no warning and no error.
 
 Endpoint names are therefore the scarce artifact. Treat this list as something to preserve
 rather than rediscover.
+
+## The v1 listing retirement
+
+Recorded 2026-08-06. Six handlers that this document lists as verified stopped answering
+under `/rekhta-api/v1/` during a crawl. They had served 632 listing pages that morning.
+
+They fail the way everything fails here: the connection is accepted, held for 27 to 47
+seconds, then closed with no response. That is the same signature as a missing parameter, a
+wrong verb, and an absent handler, so from the client side a retirement is indistinguishable
+from a bug in your own request. Roughly eleven hours went into diagnosing it as a server
+fault before a decompile of the 5.0.3 client settled it.
+
+**Three moved to a v7 base**, same handler names, same parameters:
+
+```
+https://app-rekhta.rekhta.org/api/v7/shayari/GetContentListWithPaging
+https://app-rekhta.rekhta.org/api/v7/shayari/GetCoupletListWithPaging
+https://app-rekhta.rekhta.org/api/v7/shayari/GetAudioListByPoetIdWithPaging
+```
+
+**Three have no equivalent under any base.** The functionality moved into surfaces this
+document does not cover:
+
+| Retired | Where it went |
+|---|---|
+| `GetPoetsListWithPaging` | nothing equivalent. Poets now appear as `ENTITY` banners in the feed (`GetFeedSchema`, `GetFeedDetails`), through `SearchAllByType`, `shayari/GetOnboardingEntity`, and the auth-only `shayari/GetPoetsListFollowingByUser` |
+| `GetOccasionList` | a `FEED_BANNER_TYPE.OCCASION` inside `media-api.rekhta.org/api/v1/Feed/FeedCarousels` and `Feed/GetFeedDetails`, with section config from `app-rekhta.rekhta.org/feed-api/v3/GetFeedSchema` |
+| `GetHomePageCollection` | `media-api.rekhta.org/api/v1/Videos/GetHomeScreenData`, plus the same feed trio |
+
+Losing `GetPoetsListWithPaging` is the significant one, since this document opens by calling
+it the entry point to the entire corpus. There is no replacement that enumerates poets
+without authentication. Anything depending on it needs the poet list captured while it
+lasted, or a different route entirely.
+
+### Calling the v7 listings
+
+Two things are load-bearing and both were verified by elimination on 2026-08-06:
+
+1. **The v7 base.** The v1 URL fails no matter what else is correct.
+2. **`lang` is now required, including on page 1.** Under v1 it was optional until page 2.
+   Omitting it produces the same silent hold-and-close as using the wrong base, so the two
+   failure modes cannot be told apart from the response.
+
+```bash
+curl -sS -m 60 --http1.1 -X POST \
+  -H 'temptoken: <any UUID>' -H 'Content-Type: application/json' \
+  -d '{}' \
+  'https://app-rekhta.rekhta.org/api/v7/shayari/GetCoupletListWithPaging?poetId=&targetId=&contentTypeId=f722d5dc-45da-41ec-a439-900df702a3d6&sortBy=0&pageIndex=1&keyword=&lang=1'
+```
+
+Verified: `HTTP 200` in 0.53 s, 154 KB, `TC: 35063`, 50 items, from three separate networks.
+
+What is **not** load-bearing, each tested by removing it and still getting 200:
+
+- **`ClientId` and `ClientSecret`.** The 5.0.3 client hardcodes a pair and sends them, but the
+  endpoints answer without. This confirms rather than contradicts the note in the calling
+  convention above; send them to match the client if you like, but they are not a credential
+  you need.
+- **The body shape.** `{}` and `{"a":"a"}` both work. A body is still required.
+
+Response shapes are unchanged from the v1 forms documented below, so existing parsers work
+against the v7 responses without modification.
 
 ## One origin, three APIs
 
@@ -135,7 +203,9 @@ The table below records the verb for each.
 
 ## Endpoints
 
-Verified means HTTP 200 with real data on 2026-08-04.
+Verified means HTTP 200 with real data on 2026-08-04. Rows marked RETIRED or moved were
+re-checked on 2026-08-06; everything else was still answering under v1 on that date.
+All URLs are `/rekhta-api/v1/` unless the row says otherwise.
 
 | Endpoint | Verb | Parameters | Payload | Status |
 |---|---|---|---|---|
@@ -147,19 +217,19 @@ Verified means HTTP 200 with real data on 2026-08-04.
 | `GetAppUrl` | GET | `lang` | `R` | verified |
 | `GetStreamingListByType` | GET | none | `R` | verified |
 | `GetYouTubeKey` | GET | none | `R` | verified, see warning below |
-| `GetPoetsListWithPaging` | POST | `lastFetchDate` `targetId` `pageIndex` `keyword` | `R.P[]` | verified |
+| `GetPoetsListWithPaging` | POST | `lastFetchDate` `targetId` `pageIndex` `keyword` | `R.P[]` | **RETIRED 2026-08-06**, no replacement |
 | `GetContentTypeList` | POST | `lastFetchDate` | `R[]` | verified, **filters** |
-| `GetContentListWithPaging` | POST | `targetId` `keyword` `poetId` `contentTypeId` `sortBy` `pageIndex` (`lang` page 2+ only) | `R.CS[]` | verified, **needs the JSON body** |
-| `GetCoupletListWithPaging` | POST | `targetId` `poetId` `keyword` `contentTypeId` `sortBy` `pageIndex` (`lang` page 2+ only) | `R.CD[]` | verified, **needs the JSON body** |
-| `GetAudioListByPoetIdWithPaging` | POST | `poetId` `keyword` `pageIndex` | `R.A[]` | verified |
+| `GetContentListWithPaging` | POST | `targetId` `keyword` `poetId` `contentTypeId` `sortBy` `pageIndex` `lang` | `R.CS[]` | **moved to v7 base 2026-08-06**, `lang` now required |
+| `GetCoupletListWithPaging` | POST | `targetId` `poetId` `keyword` `contentTypeId` `sortBy` `pageIndex` `lang` | `R.CD[]` | **moved to v7 base 2026-08-06**, `lang` now required |
+| `GetAudioListByPoetIdWithPaging` | POST | `poetId` `keyword` `pageIndex` `lang` | `R.A[]` | **moved to v7 base 2026-08-06** |
 | `GetVideoListByPoetIdWithPaging` | POST | `poetId` `keyword` `pageIndex` | `R` | verified |
 | `GetPoetCompleteProfile` | POST | `poetId` `lang` | `R.{CH,EP,SS,PR,UL,CS}` | verified |
 | `GetPoetProfile` | POST | `poetId` `lang` | `R` | verified |
 | `GetTagsList` | POST | `lang` | `R` | verified, whole taxonomy, no paging |
 | `GetTagsListWithTrendingTag` | POST | `lang` | `R` | verified |
 | `GetExplore` | POST | `lang` | `R` | verified |
-| `GetHomePageCollection` | POST | `lang` `lastFetchDate` | `R` | verified |
-| `GetOccasionList` | POST | `lang` | `R` | verified |
+| `GetHomePageCollection` | POST | `lang` `lastFetchDate` | `R` | **RETIRED 2026-08-06**, see feed APIs |
+| `GetOccasionList` | POST | `lang` | `R` | **RETIRED 2026-08-06**, see feed APIs |
 | `GetT20` | POST | none | `R` | verified |
 | `WordOfTheDay` | POST | `displayDate` | `R` | verified |
 | `SearchAllByType` | POST | `keyword` `lang` `type` | `R` | verified |
@@ -220,10 +290,14 @@ GET/POST https://app-rekhta.rekhta.org/rekhta-api/v1/AppConfig
 
 Two things follow from this.
 
-**`CU` and `APU` both declare `/rekhta-api/v1/` as the current content base.** So v1 is not a
-legacy path that merely still answers; it is what the server advertises to clients, even
-though the 5.0.3 app calls content handlers under `/api/v6|v7/shayari/` instead. That is a
-materially better footing for anything built on it.
+**`CU` and `APU` both declare `/rekhta-api/v1/` as the current content base**, even though the
+5.0.3 app calls content handlers under `/api/v6|v7/shayari/` instead.
+
+That was read here as evidence that v1 is advertised rather than merely tolerated, and so a
+sound footing to build on. It is weaker than that. On 2026-08-06 three handlers were retired
+from v1 while `AppConfig` went on advertising the same base, so the declaration describes the
+namespace and not the availability of any handler within it. What it does still buy is that
+v1 will not disappear wholesale without notice; individual handlers can and did.
 
 **`MU` names a media host we have not used**, `rekhta.pc.cdn.bitgravity.com`, which matches
 the audio CDN recorded during the 2026-08-03 HTML recon. The audio URLs returned by
@@ -660,7 +734,13 @@ Compared against 5.0.3, **30 handlers exist in 2.2.6 and are absent from the cur
 including `AppConfig`, `GetPoetsListWithPaging`, `GetTagsList`, `GetExplore`,
 `GetHomePageCollection`, `GetOccasionList`, `GetT20`, `WordOfTheDay`, `GetStreamingListByType`,
 `GetVideoListByPoetIdWithPaging`, `GetWordMeaningByLang`, `GetPlattsDictionaryMeanings` and
-`GetYouTubeKey`. All of them still answer.
+`GetYouTubeKey`. All of them answered on 2026-08-04.
+
+By 2026-08-06 three of that set no longer did: `GetPoetsListWithPaging`, `GetHomePageCollection`
+and `GetOccasionList`. So absence from the current client is not proof a handler will keep
+answering, only that nothing is exercising it. Being unused is what makes a handler cheap to
+retire, which inverts the reassurance this paragraph originally offered: the handlers this
+document is most valuable for recording are also the ones most likely to disappear.
 
 Two of those, `GetPoetProfile` and `GetTagsList`, are listed in 2.2.6 but **no live 2.2.6
 request ever uses them**. They were unused entries in a five-year-old client, and both work
@@ -703,4 +783,36 @@ Unverified or unknown:
   the accumulation of held-open connections from the hangs is unknown, and the two are worth
   distinguishing before any bulk run, because the second would mean a correct crawl is far
   safer than that episode suggests.
+
+  Partial evidence from 2026-08-06: a crawl held this origin at a sustained 10 to 20 requests
+  per second for several hours across `GetContentById` and `GetWordMeaningByLang`, with
+  latency flat and zero 5xx. Quadrupling the rate from 5 to 20 moved mean latency by under
+  6%. That points at held-open connections rather than request rate as the 2026-08-04
+  trigger, since the successful run made far more requests and never provoked one.
+
+## What a retirement looks like from outside
+
+Worth stating on its own, because it cost eleven hours on 2026-08-06 and the mistake is easy
+to repeat.
+
+When `GetPoetsListWithPaging` and the two listing handlers stopped answering under v1, every
+diagnostic pointed at the server. The failure reproduced identically from three networks on
+two continents, including one inside India, which ruled out an IP block and looked like
+strong evidence of an outage. Single unloaded calls failed as reliably as concurrent ones,
+which ruled out contention. Cheap handlers on the same host answered in 0.2 s, and
+`rekhta.org` itself was fast and healthy, which made it look like a backend fault confined to
+paged queries.
+
+Every one of those observations was true and the conclusion drawn from them was wrong. The
+correct reading was available in the failure set itself: the handlers that broke were exactly
+the ones the current client had moved or dropped, and the handlers that kept working were
+exactly the ones it still calls. That pattern was visible hours before the decompile and was
+described as "content-collection queries" instead.
+
+The check that would have settled it in minutes is the one this document already recommends
+elsewhere: **read the client before concluding anything about the server.** A hang means the
+server does not recognise the request as valid. That covers a missing parameter, a wrong
+verb, a missing body, a handler that never existed, and a handler that has stopped existing.
+Only the last of those looks like an outage, and none of them can be distinguished by
+probing harder.
 - The `world.rekhta.org/api/v1/forum/` surface, entirely unexplored.
