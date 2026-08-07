@@ -17,16 +17,19 @@ Three shapes:
   of scope; both are skipped.
 """
 
+import logging
 import re
 from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
 
 from selectolax.parser import HTMLParser
 
-from bayaz import rekhta
+from bayaz import config, rawstore, rekhta
 from bayaz.apis import api_for, is_miss, parse_payload
-from bayaz.db import PageRef
-from bayaz.sites import Site
+from bayaz.db import Database, PageRef
+from bayaz.sites import SITES, Site
+
+logger = logging.getLogger(__name__)
 
 _GUID = re.compile(r"^[0-9a-fA-F-]{36}$")
 _DICTIONARY_AUDIO = "https://rekhta.pc.cdn.bitgravity.com/Images/SiteImages/DictionaryAudio"
@@ -40,6 +43,10 @@ class Discovered:
 
 def discover(site: Site, segments: dict[str, str], page: PageRef, body: str) -> Discovered:
     if site.name == rekhta.SITE:
+        # The website kinds are HTML and a leaf: their word codes are the page's own base64
+        # form rather than the API's, so nothing on them resolves to a further call.
+        if page.kind in rekhta.WEB_KINDS:
+            return Discovered()
         pages, media = rekhta.discover(page.url, parse_payload(body))
         return Discovered(
             pages=[PageRef(url=url, site=site.name, kind=kind, source="discovered") for url, kind in pages],
@@ -151,3 +158,44 @@ def _content_links(site: Site, segments: dict[str, str], page: PageRef, tree: HT
         if kind := segments.get(path_segments[0]):
             refs[url] = _ref(site, url, kind)
     return list(refs.values())
+
+
+async def replay(site_names: list[str] | None, kind: str | None, limit: int | None):
+    """Re-run discovery over captures already fetched.
+
+    Crawl-time discovery sees a page once. When a rule changes, and a kind that looked like
+    a leaf turns out to reference something, the pages that would have enqueued it are
+    already marked fetched and are never revisited: only pages captured after the change
+    would ever act on it. Replaying from the raw store fixes that without touching the
+    network, and is the discovery counterpart of a re-parse, for the same reason. Raw is the
+    source of truth, so whatever is derived from it can be re-derived.
+
+    Idempotent: `add_pages` keys on url, so a url already in the manifest keeps its status
+    and a replay adds only what is genuinely new.
+    """
+    sites = [SITES[name] for name in (site_names or SITES)]
+
+    async with Database(config.DATABASE_PATH) as db:
+        for site in sites:
+            segments = await db.segments(site.name)
+            kinds = [kind] if kind else await db.fetched_kinds(site.name)
+            for current in kinds:
+                urls = await db.fetched_urls(site.name, current)
+                if limit is not None:
+                    urls = urls[:limit]
+                if not urls:
+                    continue
+                added = failed = 0
+                for url in urls:
+                    page = PageRef(url=url, site=site.name, kind=current)
+                    try:
+                        found = discover(site, segments, page, rawstore.read(site.name, url, current))
+                    except Exception:
+                        failed += 1
+                        logger.exception(f"{url}: replay failed")
+                        continue
+                    added += await db.add_pages(found.pages)
+                    await db.add_media(site.name, found.media, url)
+                logger.info(f"{site.name}/{current}: replayed {len(urls):,} capture(s), {added:,} new page(s)")
+                if failed:
+                    logger.warning(f"{site.name}/{current}: {failed} capture(s) could not be replayed")

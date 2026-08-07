@@ -28,7 +28,7 @@ import json
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
-from bayaz.request import REKHTA_GET, REKHTA_POST, Request
+from bayaz.request import GET, REKHTA_GET, REKHTA_POST, Request
 
 SITE = "rekhta"
 BASE = "https://app-rekhta.rekhta.org/rekhta-api/v1"
@@ -71,6 +71,15 @@ ENDPOINTS = {
 # The only GET among them, per the verb rule in the docs.
 _GET_KINDS = frozenset({"content"})
 
+# The prose types are the API's one blind spot. `GetContentById` returns their `CR` as an
+# empty container, `<div class='pMC' data-pc='49'></div>`, at every language: the text is
+# not in the response at all, so a story arrives as ~1.5 KB of metadata. The website serves
+# the same work whole, every page inline, in one request. This is the only kind that leaves
+# the app origin, and www.rekhta.org is deliberately absent from _ORIGIN_GROUPS so the
+# pacer gives it the gentler website budget rather than the app's.
+WEB_BASE = "https://www.rekhta.org"
+WEB_KINDS = frozenset({"work-text"})
+
 # Kinds that enumerate the corpus rather than being part of it. They are re-fetched on
 # every `enumerate`, because on a site with no sitemap the listings *are* the sitemap: left
 # marked fetched they would be skipped, and a delta run would report nothing to do while
@@ -82,6 +91,8 @@ REKHTA_LISTING = Request(method="POST", body={"a": "a"}, temptoken=True, extra_h
 
 
 def request_for_kind(kind: str) -> Request:
+    if kind in WEB_KINDS:
+        return GET
     if kind in _LISTING_KINDS:
         return REKHTA_LISTING
     return REKHTA_GET if kind in _GET_KINDS else REKHTA_POST
@@ -136,6 +147,14 @@ def listing_url(content_type_id: str, page: int, *, fragments: bool, poet_id: st
         },
         base=LISTING_BASE,
     )
+
+
+def work_text_url(type_slug: str, content_slug: str) -> str:
+    """The website page for a work, whose path is its content type and its own slug.
+
+    One url per work, not one per language: the `?lang=` variants of a prose page return
+    byte-identical text, since prose is not transliterated the way the poetry is."""
+    return f"{WEB_BASE}/{type_slug}/{content_slug}"
 
 
 def content_url(content_id: str, lang: int) -> str:
@@ -290,6 +309,13 @@ def discover(url: str, payload: dict) -> tuple[list[tuple[str, str]], list[str]]
                         continue
                     seen.add(code)
                     pages.append((word_url(code, readable, LANGS[0]), "word"))
+                # No word codes means the record carried no text tree, which is how the
+                # prose types arrive: their `CR` is an empty container and the body lives
+                # only on the website. Keying off the tree rather than off a list of prose
+                # type slugs means a type that starts withholding its text later is picked
+                # up on its own, and one that starts delivering it costs nothing.
+                if not found and (type_slug := result.get("TS")) and (content_slug := result.get("CS")):
+                    pages.append((work_text_url(type_slug, content_slug), "work-text"))
             media += _media_urls(result)
 
         case "word" | "word-group":

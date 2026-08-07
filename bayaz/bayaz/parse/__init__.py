@@ -65,7 +65,7 @@ Parser = Callable[[str, str, str], Parsed]  # (site, url, html) -> Parsed
 
 
 def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
-    from bayaz.parse import dictapi, platform, rekhtaapi, rekhtadict, taglist
+    from bayaz.parse import dictapi, platform, rekhtaapi, rekhtadict, rekhtaweb, taglist
 
     table: dict[tuple[str, str], tuple[Parser, int]] = {}
     for kind in ("word", "synonym", "antonym", "compound", "idiom", "proverb", "word-family", "tag", "partial"):
@@ -83,6 +83,7 @@ def _registry() -> dict[tuple[str, str], tuple[Parser, int]]:
     table[("hindwi", "dict-api")] = (dictapi.parse, dictapi.VERSION)
     for kind in ("content", "poet", "poets", "word", "word-group"):
         table[("rekhta", kind)] = (rekhtaapi.parse, rekhtaapi.VERSION)
+    table[("rekhta", "work-text")] = (rekhtaweb.parse, rekhtaweb.VERSION)
     return table
 
 

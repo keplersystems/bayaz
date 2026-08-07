@@ -200,6 +200,12 @@ class Database:
         )
         return [row["url"] for row in await cursor.fetchall()]
 
+    async def fetched_kinds(self, site: str) -> list[str]:
+        cursor = await self._connection.execute(
+            "SELECT DISTINCT kind FROM pages WHERE site = ? AND status = 'fetched' ORDER BY kind", (site,)
+        )
+        return [row["kind"] for row in await cursor.fetchall()]
+
     async def seen_content(self, site: str, kind: str, sha256: str) -> bool:
         """Whether this exact body was already captured for this site and kind.
 
