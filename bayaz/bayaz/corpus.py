@@ -84,9 +84,11 @@ CREATE TABLE IF NOT EXISTS works (
     body TEXT,
     body_hindi TEXT,
     body_urdu TEXT,
-    -- The site's own prose gloss of a verse, carried on tag pages beside the couplet.
-    -- Kept out of `body` so the verse stays the verse.
+    -- The site's own prose gloss of a verse, carried on tag pages beside the couplet and
+    -- as Rekhta AI's interpretation in the poetry API. Kept out of `body` so the verse
+    -- stays the verse; the same applies to the API's English translation.
     explanation TEXT,
+    translation TEXT,
     source TEXT,
     UNIQUE (site, slug)
 );
@@ -196,6 +198,7 @@ class Work:
     body_hindi: str | None = None
     body_urdu: str | None = None
     explanation: str | None = None
+    translation: str | None = None
     source: str | None = None
     tags: list[tuple[str, str | None]] = field(default_factory=list)  # (tag, url)
 
@@ -336,8 +339,8 @@ class Corpus:
         await self._connection.execute(
             """
             INSERT INTO works (site, slug, work_type, title, title_translit, title_hindi, title_urdu,
-                               author_name, author_url, body, body_hindi, body_urdu, explanation, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               author_name, author_url, body, body_hindi, body_urdu, explanation, translation, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(site, slug) DO UPDATE SET
                 work_type = excluded.work_type,
                 title = COALESCE(excluded.title, title),
@@ -350,6 +353,7 @@ class Corpus:
                 body_hindi = COALESCE(excluded.body_hindi, body_hindi),
                 body_urdu = COALESCE(excluded.body_urdu, body_urdu),
                 explanation = COALESCE(excluded.explanation, explanation),
+                translation = COALESCE(excluded.translation, translation),
                 source = COALESCE(excluded.source, source)
             """,
             (
@@ -366,6 +370,7 @@ class Corpus:
                 work.body_hindi,
                 work.body_urdu,
                 work.explanation,
+                work.translation,
                 work.source,
             ),
         )

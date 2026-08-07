@@ -15,7 +15,7 @@ from bayaz.corpus import Entity, Entry, Sense, Work
 from bayaz.parse import Parsed
 from bayaz.rekhta import query, text_tree
 
-VERSION = 1
+VERSION = 2
 
 SITE = "rekhta"
 
@@ -50,11 +50,37 @@ def _text(row: dict, prefix: str) -> tuple[str | None, str | None, str | None]:
     return (row.get(f"{prefix}E"), row.get(f"{prefix}H"), row.get(f"{prefix}U"))
 
 
-def _lines(tree) -> list[list[tuple[str, str | None]]]:
-    """The tree as lines of (word, code), in reading order.
+_TAG = re.compile(r"<[^>]+>")
 
-    The shape is stanza -> line -> word, and every level uses `W` for its children, so the
-    levels are told apart by type rather than by key: a word's `W` is the word itself as a
+
+def _part(tree, key: str) -> list:
+    """One part of the text, gathered across every stanza.
+
+    `P` holds the stanzas and each carries three parallel parts: the verse under `L`, an
+    English translation under `T`, and Rekhta AI's interpretation under `E`. They share the
+    line/word shape, so walking the tree whole appends translation and interpretation to the
+    verse, markup and all. Measured before this existed: 1% of content records carry a
+    non-empty `T` or `E`, and 3,130 body fields had `<h6>Interpretation: Rekhta AI</h6>` and
+    its commentary run onto the end of the poem."""
+    if not isinstance(tree, dict):
+        return []
+    return [
+        part for stanza in tree.get("P") or [] if isinstance(stanza, dict) for part in (stanza.get(key) or [])
+    ]
+
+
+def _prose(part: list) -> str | None:
+    """A translation or interpretation as plain text. Its words carry markup the verse never
+    does, including the site's own `nonContent` spans, so tags are stripped rather than kept."""
+    text = "\n".join(" ".join(word for word, _ in line) for line in _lines(part))
+    return " ".join(_TAG.sub(" ", text).split()) or None
+
+
+def _lines(tree) -> list[list[tuple[str, str | None]]]:
+    """One part as lines of (word, code), in reading order.
+
+    Within a part the shape is line -> word and both levels use `W` for their children, so
+    they are told apart by type rather than by key: a word's `W` is the word itself as a
     string, while a line's `W` is the list of them."""
     lines: list[list[tuple[str, str | None]]] = []
 
@@ -100,9 +126,12 @@ def _content(result: dict, params: dict) -> Parsed:
         case _:
             work.title = work.title_translit = title
 
-    lines = _lines(text_tree(result))
+    tree = text_tree(result)
+    lines = _lines(_part(tree, "L"))
     body = "\n".join(" ".join(word for word, _ in line) for line in lines) or None
     setattr(work, f"body{_LANG_FIELD.get(lang, '')}" if lang != 1 else "body", body)
+    work.explanation = _prose(_part(tree, "E"))
+    work.translation = _prose(_part(tree, "T"))
 
     work.tags = [(name, tag.get("TS")) for tag in result.get("Tags") or [] if (name := tag.get("TN"))]
 
