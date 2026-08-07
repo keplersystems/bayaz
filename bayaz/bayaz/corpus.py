@@ -227,6 +227,12 @@ class Corpus:
         self._connection = await aiosqlite.connect(self.db_path)
         self._connection.row_factory = aiosqlite.Row
         await self._connection.execute("PRAGMA journal_mode=WAL")
+        # Every write here commits, and parsing one page commits several times, so at corpus
+        # scale the run is spent in fsync rather than in parsing: measured at 52% CPU with
+        # fifteen cores idle. NORMAL drops the per-commit fsync, which in WAL cannot corrupt
+        # the database, only lose the last transactions to an OS or power failure. That is
+        # the right trade for a corpus that is re-derived from the raw store by design.
+        await self._connection.execute("PRAGMA synchronous=NORMAL")
         await self._connection.executescript(SCHEMA)
         await self._connection.commit()
 
