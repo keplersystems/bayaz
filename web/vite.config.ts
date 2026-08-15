@@ -3,6 +3,13 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
+const API_PROXY = {
+	'/api': {
+		target: 'http://127.0.0.1:8100',
+		rewrite: (path: string) => path.replace(/^\/api/, '')
+	}
+};
+
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
@@ -18,15 +25,10 @@ export default defineConfig({
 			adapter: adapter({ fallback: 'index.html' })
 		})
 	],
-	server: {
-		// Vite rejects requests whose Host it does not know, so a tunnelled hostname has to be
-		// listed or the dev server answers 403 to everything from it.
-		allowedHosts: ['preview.aun.rest'],
-		proxy: {
-			'/api': { target: 'http://127.0.0.1:8100', rewrite: (path) => path.replace(/^\/api/, '') }
-		}
-	},
-	preview: {
-		allowedHosts: ['preview.aun.rest']
-	}
+	// `/api` is proxied rather than called cross-origin so the browser never needs CORS, and
+	// the site ships one origin in development exactly as it will in production.
+	// `allowedHosts` is required for the tunnelled hostname: vite answers 403 to any Host it
+	// was not told about.
+	server: { allowedHosts: ['preview.aun.rest'], proxy: API_PROXY },
+	preview: { allowedHosts: ['preview.aun.rest'], proxy: API_PROXY }
 });
