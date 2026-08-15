@@ -3,6 +3,7 @@
 	import EntryRow from '$lib/components/EntryRow.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import SearchBox from '$lib/components/SearchBox.svelte';
+	import FilterRow from '$lib/components/FilterRow.svelte';
 	import StateMessage from '$lib/components/StateMessage.svelte';
 	import { formatCount } from '$lib/scripts';
 
@@ -30,28 +31,17 @@
 		</div>
 	</header>
 
-	<nav class="flex flex-wrap justify-center gap-2" role="group" aria-label="Filter by site">
-		<a
-			href="/dictionary"
-			class="rounded-m3-full px-3 py-1.5 text-sm font-medium transition-colors
-				{data.site
-				? 'text-on-surface-variant hover:bg-surface-container-high'
-				: 'bg-secondary-container text-on-secondary-container'}"
-		>
-			All · {formatCount(total)}
-		</a>
-		{#each data.sites as s (s.site)}
-			<a
-				href="/dictionary?site={s.site}"
-				class="rounded-m3-full px-3 py-1.5 text-sm font-medium transition-colors
-					{data.site === s.site
-					? 'bg-secondary-container text-on-secondary-container'
-					: 'text-on-surface-variant hover:bg-surface-container-high'}"
-			>
-				{s.site} · {formatCount(s.entries)}
-			</a>
-		{/each}
-	</nav>
+	<div class="border-y border-outline-variant/70 py-3">
+		<FilterRow
+			label="Site"
+			options={[null, ...data.sites.map((s) => s.site)]}
+			current={data.site}
+			href={(site) => (site ? `/dictionary?site=${site}` : '/dictionary')}
+			labels={Object.fromEntries(
+				data.sites.map((s) => [s.site, `${s.site} · ${formatCount(s.entries)}`])
+			)}
+		/>
+	</div>
 
 	{#if data.entries.items.length === 0}
 		<div class="mt-10">

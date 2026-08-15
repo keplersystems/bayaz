@@ -14,20 +14,29 @@
 </script>
 
 <header class="sticky top-0 z-40 border-b border-outline-variant/60 bg-surface/85 backdrop-blur-md">
-	<div class="mx-auto flex h-14 max-w-5xl items-center gap-5 px-4 sm:px-6">
+	<div class="mx-auto flex h-14 max-w-5xl items-center gap-3 px-3 sm:gap-5 sm:px-6">
 		<a
 			href="/"
-			class="font-serif text-xl tracking-tight italic transition-colors hover:text-primary"
+			class="shrink-0 font-serif text-xl tracking-tight italic transition-colors hover:text-primary"
 		>
 			bayaz
 		</a>
 
-		<nav class="flex items-center gap-4 text-sm sm:gap-5" aria-label="Primary">
+		<!-- The three links, the search affordance and the theme toggle do not fit on one 320px
+		     line, so the nav is the part allowed to shrink and scroll rather than push the rest
+		     off the screen. -->
+		<nav
+			class="flex min-w-0 [scrollbar-width:none] items-center gap-3.5 overflow-x-auto
+				text-sm sm:gap-5 [&::-webkit-scrollbar]:hidden"
+			aria-label="Primary"
+		>
 			{#each links as link (link.href)}
+				<!-- `py` is for the touch target, not for looks: the text alone is a 20px tall tap
+				     area, under the 24px minimum. -->
 				<a
 					href={link.href}
 					aria-current={active(link.href) ? 'page' : undefined}
-					class="text-on-surface-variant decoration-primary underline-offset-[0.4em]
+					class="shrink-0 py-2.5 text-on-surface-variant decoration-primary underline-offset-[0.4em]
 						transition-colors hover:text-on-surface aria-current:text-on-surface aria-current:underline"
 				>
 					{link.label}
@@ -35,7 +44,7 @@
 			{/each}
 		</nav>
 
-		<div class="ml-auto flex items-center gap-1">
+		<div class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
 			<div class="hidden w-56 lg:block">
 				<SearchBox />
 			</div>

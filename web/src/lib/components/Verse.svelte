@@ -2,7 +2,7 @@
 	import {
 		ApiError,
 		api,
-		type EntrySummary,
+		type EntryGloss,
 		type Word,
 		type WorkDetail,
 		type WorkWords
@@ -47,7 +47,7 @@
 
 	let active = $state<{ word: string; code: string; rect: DOMRect } | null>(null);
 	let status = $state<'loading' | 'found' | 'none' | 'error'>('loading');
-	let entry = $state<EntrySummary | null>(null);
+	let entry = $state<EntryGloss | null>(null);
 	let requestId = 0;
 
 	$effect(() => {

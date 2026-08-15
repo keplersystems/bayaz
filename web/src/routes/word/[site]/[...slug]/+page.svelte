@@ -82,7 +82,7 @@
 				<h1 class="font-serif text-4xl text-on-surface">{entry.headword}</h1>
 			{/if}
 			{#if entry.headword_urdu}
-				<p lang="ur" class="text-nastaliq text-on-surface">{entry.headword_urdu}</p>
+				<p lang="ur" class="text-verse-urdu text-on-surface">{entry.headword_urdu}</p>
 			{/if}
 			{#if entry.headword_hindi}
 				<p lang="hi" class="text-2xl text-on-surface-variant">{entry.headword_hindi}</p>
@@ -136,16 +136,13 @@
 			<section aria-label="Senses" class="mb-10 space-y-8">
 				{#each senseLangs as [lang, senses] (lang)}
 					<div>
-						<h2
-							lang={langMeta[lang]?.lang ?? null}
-							class="mb-3 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase"
-						>
+						<h2 lang={langMeta[lang]?.lang ?? null} class="mb-3 label">
 							{langMeta[lang]?.label ?? lang}
 						</h2>
 						<ol class="space-y-3">
 							{#each senses as sense, i (i)}
 								<li class="flex gap-3 text-lg leading-relaxed">
-									<span class="font-serif text-on-surface-variant/60 tabular-nums">{i + 1}.</span>
+									<span class="font-serif text-on-surface-faint tabular-nums">{i + 1}.</span>
 									<div>
 										{#if sense.pos}
 											<span class="text-sm text-on-surface-variant italic">{sense.pos.trim()}</span>
@@ -164,12 +161,10 @@
 
 		{#if relations.length > 0}
 			<section aria-label="Related words" class="mb-10">
-				<h2 class="mb-3 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase">
-					Related words
-				</h2>
+				<h2 class="mb-3 label">Related words</h2>
 				{#each relations as [type, list] (type)}
 					<div class="mb-3 flex flex-wrap items-center gap-2">
-						<span class="w-24 text-sm text-on-surface-variant/70 capitalize">{type}</span>
+						<span class="w-24 text-sm text-on-surface-faint capitalize">{type}</span>
 						{#each list as relation, i (type + i)}
 							<span
 								class="rounded-m3-full border border-outline-variant bg-surface-container px-3
@@ -186,9 +181,7 @@
 
 		{#if entry.examples.length > 0}
 			<section aria-label="Examples" class="mb-10">
-				<h2 class="mb-3 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase">
-					In use
-				</h2>
+				<h2 class="mb-3 label">In use</h2>
 				<ul class="space-y-2">
 					{#each entry.examples as example, i (i)}
 						<li class="font-serif text-lg leading-relaxed text-on-surface">
@@ -201,11 +194,7 @@
 
 		{#if shers.length > 0}
 			<section aria-label="Example couplets" class="mb-4">
-				<h2
-					class="mb-6 text-center text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase"
-				>
-					In verse
-				</h2>
+				<h2 class="mb-6 text-center label">In verse</h2>
 				<div class="space-y-10">
 					{#each shers as sher, i (i)}
 						<blockquote class="text-center">
@@ -224,5 +213,5 @@
 		{/if}
 	{/if}
 
-	<p class="mt-12 text-center text-xs text-on-surface-variant/60">{entry.site}</p>
+	<p class="mt-12 text-center text-xs text-on-surface-faint">{entry.site}</p>
 </article>

@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Query
 
 from bayaz_api import db
-from bayaz_api.listing import Pages
+from bayaz_api.listing import Pages, match_expression
 from bayaz_api.models import Page, SearchHit
 
 router = APIRouter(tags=["search"])
@@ -33,23 +33,23 @@ _TARGETS = {
         source="entries_fts JOIN entries t ON t.id = entries_fts.rowid",
         title="coalesce(t.headword, t.headword_hindi, t.headword_urdu)",
     ),
+    "poets": _Target(
+        kind="poet",
+        index="entities_fts",
+        source="entities_fts JOIN entities t ON t.id = entities_fts.rowid",
+        title="coalesce(t.name, t.name_hindi, t.name_urdu)",
+    ),
 }
-
-
-def _expression(query: str) -> str:
-    """Quote every token, so the fts5 query grammar never sees the user's punctuation: an
-    apostrophe or a hyphen would otherwise be a syntax error rather than a search."""
-    return " ".join(f'"{token.replace('"', '""')}"' for token in query.split())
 
 
 @router.get("/search", response_model=Page[SearchHit])
 def search(
     paging: Pages,
     q: Annotated[str, Query(min_length=2, description="words to search for, in any script")],
-    kind: Annotated[Literal["works", "entries"], Query(description="what to search")] = "works",
+    kind: Annotated[Literal["works", "entries", "poets"], Query(description="what to search")] = "works",
     site: Annotated[str | None, Query(description="restrict to one site")] = None,
 ):
-    expression = _expression(q)
+    expression = match_expression(q)
     if not expression:
         return Page(items=[], total=0, limit=paging.limit, offset=paging.offset)
 

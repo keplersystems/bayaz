@@ -34,7 +34,7 @@
 	</nav>
 
 	<header class="mb-8 border-b border-outline-variant/60 pb-8 text-center">
-		<p class="mb-2 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase">
+		<p class="mb-2 label">
 			{data.poet.entity_type} · {data.poet.site}
 		</p>
 		<h1 class="font-serif text-4xl text-on-surface">
@@ -57,7 +57,7 @@
 		{/if}
 	</header>
 
-	<h2 class="mb-2 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase">
+	<h2 class="mb-2 label">
 		{formatCount(data.poet.works)} works
 	</h2>
 

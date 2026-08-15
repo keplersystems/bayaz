@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from bayaz_api import db
-from bayaz_api.listing import Filters, Pages, page
+from bayaz_api.listing import Filters, Pages, match_expression, page
 from bayaz_api.models import EntityDetail, EntitySummary, Page, WorkSummary
 
 router = APIRouter(tags=["poets"])
@@ -19,10 +19,15 @@ def list_poets(
     paging: Pages,
     site: Annotated[str | None, Query(description="rekhta, hindwi or sufinama")] = None,
     entity_type: Annotated[str | None, Query(description="poets, authors, translators, ...")] = None,
+    q: Annotated[str | None, Query(min_length=2, description="match against the name, in any script")] = None,
 ):
     filters = Filters()
     filters.add("site = ?", site)
     filters.add("entity_type = ?", entity_type)
+    # Matching the name goes through fts rather than LIKE so a query in one script finds the
+    # entity whose name was captured in another.
+    if q and (expression := match_expression(q)):
+        filters.add("id IN (SELECT rowid FROM entities_fts WHERE entities_fts MATCH ?)", expression)
     return page(EntitySummary, _COLUMNS, "entities", "name_translit, id", paging, filters)
 
 

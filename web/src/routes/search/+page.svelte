@@ -1,98 +1,109 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import type { SearchKind } from '$lib/api';
+	import FilterRow from '$lib/components/FilterRow.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import ScriptText from '$lib/components/ScriptText.svelte';
 	import SearchBox from '$lib/components/SearchBox.svelte';
 	import StateMessage from '$lib/components/StateMessage.svelte';
-	import BookMarked from 'lucide-svelte/icons/book-marked';
-	import Feather from 'lucide-svelte/icons/feather';
 	import { formatCount } from '$lib/scripts';
 
 	let { data }: { data: PageData } = $props();
 
-	const tabs = [
-		{ value: null, label: 'Everything' },
-		{ value: 'works', label: 'Works' },
-		{ value: 'entries', label: 'Words' }
-	] as const;
+	const KIND_LABEL: Record<SearchKind, string> = {
+		works: 'works',
+		entries: 'words',
+		poets: 'poets'
+	};
 
-	function tabHref(kind: string | null) {
-		return `/search?q=${encodeURIComponent(data.q)}${kind ? `&kind=${kind}` : ''}`;
+	const sites = ['rekhta', 'hindwi', 'sufinama', 'rekhtadictionary'];
+
+	function href(extra: Record<string, string | null>) {
+		const params = new URLSearchParams({ q: data.q });
+		const merged = { kind: data.kind, site: data.site, ...extra };
+		for (const [key, value] of Object.entries(merged)) if (value) params.set(key, value);
+		return `/search?${params}`;
+	}
+
+	function hitHref(kind: string, site: string, slug: string) {
+		const path = kind === 'entry' ? 'word' : kind === 'poet' ? 'poet' : 'work';
+		return `/${path}/${site}/${encodeURIComponent(slug)}`;
 	}
 </script>
 
 <svelte:head><title>{data.q ? `${data.q} · search · bayaz` : 'Search · bayaz'}</title></svelte:head>
 
-<section class="mx-auto max-w-3xl px-4 py-10">
-	<header class="mb-8">
-		<h1 class="font-serif text-3xl text-on-surface">Search</h1>
-		<div class="mt-5">
-			{#key data.q + (data.kind ?? '')}
-				<SearchBox size="lg" initial={data.q} autofocus placeholder="A poet, a ghazal, a word…" />
-			{/key}
+<section class="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+	<h1 class="font-serif text-3xl text-on-surface">Search</h1>
+	<div class="mt-5">
+		{#key data.q + data.kind}
+			<SearchBox
+				size="lg"
+				initial={data.q}
+				autofocus
+				kind={data.kind === 'poets' ? undefined : data.kind}
+				placeholder="A poet, a ghazal, a word"
+			/>
+		{/key}
+	</div>
+
+	{#if data.q}
+		<div class="mt-6 space-y-1.5 border-y border-outline-variant/70 py-3">
+			<FilterRow
+				label="In"
+				options={['works', 'entries', 'poets']}
+				current={data.kind}
+				href={(kind) => href({ kind, site: null })}
+				labels={KIND_LABEL}
+			/>
+			<FilterRow
+				label="Site"
+				options={[null, ...sites]}
+				current={data.site}
+				href={(site) => href({ site })}
+			/>
 		</div>
-	</header>
+	{/if}
 
 	{#if !data.q}
-		<StateMessage
-			kind="search"
-			title="Nothing searched for yet"
-			hint="Titles, verses and dictionary headwords, in any script."
-		/>
+		<div class="mt-10">
+			<StateMessage
+				kind="search"
+				title="Nothing searched for yet"
+				hint="Verses, dictionary headwords and poets, in any script."
+			/>
+		</div>
 	{:else if data.results && data.results.items.length === 0}
-		<StateMessage
-			kind="search"
-			title={`Nothing found for “${data.q}”`}
-			hint="Try another spelling, or another script: Roman, Devanagari or Nastaliq."
-		/>
+		<div class="mt-10">
+			<StateMessage
+				kind="search"
+				title={`Nothing found for “${data.q}”`}
+				hint="Try another spelling, or another script: Roman, Devanagari or Nastaliq."
+			/>
+		</div>
 	{:else if data.results}
-		<nav class="mb-6 flex items-center gap-1" role="group" aria-label="Result type">
-			{#each tabs as tab (tab.label)}
-				<a
-					href={tabHref(tab.value)}
-					aria-current={data.kind === tab.value ? 'true' : undefined}
-					class="rounded-m3-full px-3 py-1.5 text-sm font-medium transition-colors
-						{data.kind === tab.value
-						? 'bg-secondary-container text-on-secondary-container'
-						: 'text-on-surface-variant hover:bg-surface-container-high'}"
-				>
-					{tab.label}
-				</a>
-			{/each}
-			<span class="ml-auto text-sm text-on-surface-variant tabular-nums">
-				{formatCount(data.results.total)} results
-			</span>
-		</nav>
+		<p class="mt-4 text-sm text-on-surface-variant tabular-nums">
+			{formatCount(data.results.total)}
+			{KIND_LABEL[data.kind]}
+		</p>
 
-		<ul class="divide-y divide-outline-variant">
-			{#each data.results.items as hit (hit.site + hit.slug)}
-				{@const isEntry = hit.kind === 'entry'}
-				{@const href = isEntry
-					? `/word/${hit.site}/${encodeURIComponent(hit.slug)}`
-					: `/work/${hit.site}/${encodeURIComponent(hit.slug)}`}
-				<li class="py-4">
-					<a {href} class="group block">
-						<div class="flex items-baseline justify-between gap-3">
-							<span
-								class="min-w-0 font-serif text-lg leading-snug text-on-surface
-								transition-colors group-hover:text-primary"
-							>
-								<ScriptText text={hit.title?.trim() || hit.snippet.slice(0, 60)} />
-							</span>
-							<span
-								class="inline-flex shrink-0 items-center gap-1.5 text-xs tracking-wide
-								text-on-surface-variant uppercase"
-							>
-								{#if isEntry}<BookMarked class="size-3.5" aria-hidden="true" />{:else}<Feather
-										class="size-3.5"
-										aria-hidden="true"
-									/>{/if}
-								{hit.site}
-							</span>
-						</div>
-						<p class="mt-1 line-clamp-2 text-sm leading-relaxed text-on-surface-variant">
-							<ScriptText text={hit.snippet} />
+		<ul class="mt-2 divide-y divide-outline-variant/70">
+			{#each data.results.items as hit (hit.kind + hit.site + hit.slug)}
+				<li>
+					<a href={hitHref(hit.kind, hit.site, hit.slug)} class="group block py-4">
+						<p
+							class="font-serif text-lg leading-snug text-balance text-on-surface transition-colors group-hover:text-primary"
+						>
+							<ScriptText text={hit.title?.trim() || hit.snippet.slice(0, 60)} />
 						</p>
+						{#if hit.snippet.trim() && hit.snippet.trim() !== hit.title?.trim()}
+							<p class="mt-1 line-clamp-2 text-sm leading-relaxed text-on-surface-variant">
+								<ScriptText text={hit.snippet} />
+							</p>
+						{/if}
+						{#if !data.site}
+							<p class="mt-1 text-sm text-on-surface-faint">{hit.site}</p>
+						{/if}
 					</a>
 				</li>
 			{/each}
@@ -102,12 +113,7 @@
 			total={data.results.total}
 			offset={data.offset}
 			perPage={data.perPage}
-			makeHref={(offset) => {
-				const params = new URLSearchParams({ q: data.q });
-				if (data.kind) params.set('kind', data.kind);
-				params.set('offset', String(offset));
-				return `?${params}`;
-			}}
+			makeHref={(offset) => href({ offset: String(offset) })}
 		/>
 	{/if}
 </section>

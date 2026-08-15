@@ -27,7 +27,7 @@ type Titled = {
 };
 
 /** Roman reads best next to an English interface, so prefer it and fall back through the scripts. */
-export function preferredScript(work: Titled): Script {
+function preferredScript(work: Titled): Script {
 	if (work.title) return 'roman';
 	if (work.title_hindi) return 'hindi';
 	if (work.title_urdu) return 'urdu';

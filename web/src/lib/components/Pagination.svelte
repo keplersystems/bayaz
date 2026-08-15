@@ -34,7 +34,10 @@
 				<ChevronLeft class="size-4" aria-hidden="true" />Previous
 			</a>
 		{:else}
-			<span class="flex items-center gap-1 px-2 py-1 text-sm text-outline" aria-hidden="true">
+			<span
+				class="flex items-center gap-1 px-2 py-1 text-sm text-on-surface-faint"
+				aria-hidden="true"
+			>
 				<ChevronLeft class="size-4" />Previous
 			</span>
 		{/if}
@@ -50,7 +53,10 @@
 				Next<ChevronRight class="size-4" aria-hidden="true" />
 			</a>
 		{:else}
-			<span class="flex items-center gap-1 px-2 py-1 text-sm text-outline" aria-hidden="true">
+			<span
+				class="flex items-center gap-1 px-2 py-1 text-sm text-on-surface-faint"
+				aria-hidden="true"
+			>
 				Next<ChevronRight class="size-4" />
 			</span>
 		{/if}

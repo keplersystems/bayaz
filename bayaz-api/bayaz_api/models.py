@@ -117,6 +117,16 @@ class EntrySummary(BaseModel):
     headword_urdu: str | None
 
 
+class EntryGloss(EntrySummary):
+    """What a reader needs when they tap a word: the headword and what it means.
+
+    A summary alone is useless at the point of use, because the three headword scripts are
+    three spellings of the word already on the page. The senses are the answer.
+    """
+
+    senses: list[Sense]
+
+
 class EntryDetail(EntrySummary):
     vazn: str | None
     trivia: str | None

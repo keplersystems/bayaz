@@ -20,9 +20,7 @@
 	</nav>
 
 	<header class="mb-8 text-center">
-		<p
-			class="mb-2 flex items-center justify-center gap-1.5 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase"
-		>
+		<p class="mb-2 flex items-center justify-center gap-1.5 label">
 			<Tag class="size-3.5" aria-hidden="true" />Tag
 		</p>
 		<h1 class="font-serif text-3xl text-on-surface">

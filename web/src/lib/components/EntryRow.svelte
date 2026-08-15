@@ -29,7 +29,9 @@
 						<ScriptText text={entry.headword_hindi} />
 					</span>
 				{/if}
-				<span class="ml-auto text-xs tracking-wide text-outline uppercase">{entry.site}</span>
+				<span class="ml-auto text-xs tracking-wide text-on-surface-faint uppercase"
+					>{entry.site}</span
+				>
 			</a>
 		</li>
 	{/each}

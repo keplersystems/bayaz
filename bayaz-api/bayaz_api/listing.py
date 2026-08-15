@@ -14,6 +14,15 @@ from bayaz_api import db
 from bayaz_api.models import Page
 
 
+def match_expression(query: str) -> str:
+    """Turn user input into an fts5 MATCH expression.
+
+    Every token is quoted, so the fts5 query grammar never sees the user's punctuation: an
+    apostrophe or a hyphen would otherwise be a syntax error rather than a search.
+    """
+    return " ".join(f'"{token.replace(chr(34), chr(34) * 2)}"' for token in query.split())
+
+
 @dataclass(frozen=True, slots=True)
 class Paging:
     limit: int

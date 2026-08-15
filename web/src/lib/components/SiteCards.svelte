@@ -21,16 +21,16 @@
 				rounded-m3-lg border border-outline-variant bg-surface-container p-5 transition-colors hover:border-primary/50"
 		>
 			<div class="flex items-center justify-between">
-				<h3 class="font-serif text-xl text-on-surface transition-colors group-hover:text-primary">
+				<h2 class="font-serif text-xl text-on-surface transition-colors group-hover:text-primary">
 					{s.site}
-				</h3>
+				</h2>
 				<BookOpen
-					class="size-5 text-outline transition-colors group-hover:text-primary"
+					class="size-5 text-on-surface-faint transition-colors group-hover:text-primary"
 					aria-hidden="true"
 				/>
 			</div>
 			<p class="text-sm text-on-surface-variant">{blurb[s.site] ?? ''}</p>
-			<p class="mt-auto text-sm text-on-surface-variant/80 tabular-nums">
+			<p class="mt-auto text-sm text-on-surface-faint tabular-nums">
 				{formatCount(s.works)} works
 				{#if s.entries > 0}· {formatCount(s.entries)} entries{/if}
 				{#if s.entities > 0}· {formatCount(s.entities)} poets{/if}

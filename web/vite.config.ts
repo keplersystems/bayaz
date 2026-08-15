@@ -19,8 +19,14 @@ export default defineConfig({
 		})
 	],
 	server: {
+		// Vite rejects requests whose Host it does not know, so a tunnelled hostname has to be
+		// listed or the dev server answers 403 to everything from it.
+		allowedHosts: ['preview.aun.rest'],
 		proxy: {
 			'/api': { target: 'http://127.0.0.1:8100', rewrite: (path) => path.replace(/^\/api/, '') }
 		}
+	},
+	preview: {
+		allowedHosts: ['preview.aun.rest']
 	}
 });

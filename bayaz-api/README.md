@@ -41,9 +41,9 @@ The 6,064 that stay unlinked are works whose poet page was never captured, or th
 author link at all.
 
 **Full-text search is built.** The corpus has no FTS table, and `LIKE '%...%'` over the
-912 MB `works` table measured 470-670 ms per query. `works_fts` mirrors `works` through
-fts5's external-content mode; `entries_fts` cannot, because an entry's definitions live in
-`senses` and external content reads one table.
+912 MB `works` table measured 470-670 ms per query. `works_fts` and `entities_fts` mirror
+their tables through fts5's external-content mode; `entries_fts` cannot, because an entry's
+definitions live in `senses` and external content reads one table.
 
 ## Routes
 
@@ -56,18 +56,18 @@ GET  /works?site=&work_type=&author=
 GET  /works/{site}/{slug}                    title and body in up to three scripts
 GET  /works/{site}/{slug}/words              word positions, by script variant and line
 
-GET  /poets?site=&entity_type=               poets, authors, translators, publishers, ...
+GET  /poets?site=&entity_type=&q=            poets, authors, translators, publishers, ...
 GET  /poets/{site}/{slug}
 GET  /poets/{site}/{slug}/works
 
 GET  /entries?site=
-GET  /entries/lookup?code=                   word code to entry
+GET  /entries/lookup?code=                   word code to entry, with its senses
 GET  /entries/{site}/{slug}                  senses by language, relations, example couplets
 
 GET  /tags?site=
 GET  /tags/{tag}/works
 
-GET  /search?q=&kind=works|entries&site=
+GET  /search?q=&kind=works|entries|poets&site=
 ```
 
 Listings take `limit` (max 100) and `offset`, and return `{items, total, limit, offset}`.
@@ -85,6 +85,9 @@ The one flow worth knowing, because the rest follows from it:
 
 `lang` on a word variant is the site's own id (`1`, `2`, `3`), not a language code. That is
 what the source supplies, and mapping it would invent a fact the archive does not hold.
+
+`lookup` returns the senses, not just the headword: the three headword scripts are three
+spellings of the word already on the page, so a response without definitions answers nothing.
 
 Only rekhta's 262,030 poetry codes resolve. The 592,351 codes on hindwi and sufinama works
 match no entry, and neither does prose recovered from rekhta.org's own pages, which encodes

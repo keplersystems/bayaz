@@ -44,9 +44,7 @@
 	</div>
 
 	{#if rest.length > 0}
-		<h2 class="mt-10 mb-3 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase">
-			Everything else
-		</h2>
+		<h2 class="mt-10 mb-3 label">Everything else</h2>
 		<ul class="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
 			{#each rest as type (type.work_type)}
 				<li>
@@ -58,7 +56,7 @@
 						<span class="text-on-surface transition-colors group-hover:text-primary">
 							{humanizeSlug(type.work_type)}
 						</span>
-						<span class="text-sm text-on-surface-variant/70 tabular-nums">
+						<span class="text-sm text-on-surface-faint tabular-nums">
 							{formatCount(type.works)}
 						</span>
 					</a>

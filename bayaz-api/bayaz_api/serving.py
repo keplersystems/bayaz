@@ -138,6 +138,11 @@ CREATE VIRTUAL TABLE entries_fts USING fts5(
     headword, headword_hindi, headword_urdu, definitions,
     tokenize="unicode61 remove_diacritics 2"
 );
+
+CREATE VIRTUAL TABLE entities_fts USING fts5(
+    name, name_hindi, name_urdu, name_translit,
+    content='entities', content_rowid='id', tokenize="unicode61 remove_diacritics 2"
+);
 """
 
 _COPY = (
@@ -236,6 +241,11 @@ def build(corpus_path: Path, serve_path: Path):
 
     # ANALYZE writes to every attached database, and the corpus is attached read-only.
     connection.execute("DETACH DATABASE corpus")
+
+    done = _step("index entities_fts")
+    connection.execute("INSERT INTO entities_fts(entities_fts) VALUES ('rebuild')")
+    connection.commit()
+    done()
 
     done = _step("analyze")
     connection.execute("ANALYZE")

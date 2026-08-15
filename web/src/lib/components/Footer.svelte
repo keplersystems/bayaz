@@ -12,7 +12,7 @@
 				<span class="font-serif text-base text-on-surface italic">bayaz</span>
 			</Gloss>, a personal archive of the Rekhta Foundation's literary web.
 		</p>
-		<p class="text-on-surface-variant/70">
+		<p class="text-on-surface-faint">
 			All content belongs to rekhta, hindwi, sufinama and rekhtadictionary.
 		</p>
 	</div>

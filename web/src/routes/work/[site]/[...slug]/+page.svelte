@@ -98,11 +98,16 @@
 		{/if}
 	</header>
 
-	{#if options.filter((o) => o.available).length > 1}
-		<div class="mb-12 flex items-center justify-between border-y border-outline-variant/70 py-2.5">
+	{#if options.filter((o) => o.available).length > 1 || data.words.length > 0}
+		<!-- Wraps rather than hiding the hint on narrow screens: tapping is the gesture a phone
+		     reader has, so that is where the affordance is most worth stating. -->
+		<div
+			class="mb-12 flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5
+				border-y border-outline-variant/70 py-2.5"
+		>
 			<ScriptSwitcher {options} value={script} onselect={(s) => (override = s)} />
 			{#if data.words.length > 0}
-				<p class="hidden text-xs text-on-surface-faint sm:block">Tap any word for its meaning</p>
+				<p class="text-xs text-on-surface-faint">Tap any word for its meaning</p>
 			{/if}
 		</div>
 	{/if}
@@ -114,9 +119,7 @@
 		<section class="mt-16 space-y-6 border-t border-outline-variant/70 pt-8">
 			{#if data.work.translation}
 				<div>
-					<h2 class="mb-1.5 text-xs tracking-[0.12em] text-on-surface-faint uppercase">
-						Translation
-					</h2>
+					<h2 class="mb-1.5 label">Translation</h2>
 					<p class="font-serif text-lg leading-relaxed text-on-surface-variant">
 						{data.work.translation}
 					</p>
@@ -124,9 +127,7 @@
 			{/if}
 			{#if data.work.explanation}
 				<div>
-					<h2 class="mb-1.5 text-xs tracking-[0.12em] text-on-surface-faint uppercase">
-						Explanation
-					</h2>
+					<h2 class="mb-1.5 label">Explanation</h2>
 					<p class="font-serif text-lg leading-relaxed text-on-surface-variant">
 						<ScriptText text={data.work.explanation} />
 					</p>

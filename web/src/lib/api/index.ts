@@ -21,12 +21,14 @@ export type Word = Schemas['Word'];
 export type EntitySummary = Schemas['EntitySummary'];
 export type EntityDetail = Schemas['EntityDetail'];
 export type EntrySummary = Schemas['EntrySummary'];
+export type EntryGloss = Schemas['EntryGloss'];
 export type EntryDetail = Schemas['EntryDetail'];
 export type Sense = Schemas['Sense'];
 export type Relation = Schemas['Relation'];
 export type Sher = Schemas['Sher'];
 export type TagSummary = Schemas['TagSummary'];
 export type SearchHit = Schemas['SearchHit'];
+export type SearchKind = 'works' | 'entries' | 'poets';
 
 /** Thrown for any non-2xx response. `status === 404` is a normal outcome on several routes. */
 export class ApiError extends Error {
@@ -83,7 +85,7 @@ export const api = {
 	workWords: (site: string, slug: string, f?: Fetcher) =>
 		get<WorkWords[]>(`/works/${path(site)}/${path(slug)}/words`, {}, f),
 
-	poets: (params: Paging & { site?: string; entity_type?: string } = {}, f?: Fetcher) =>
+	poets: (params: Paging & { site?: string; entity_type?: string; q?: string } = {}, f?: Fetcher) =>
 		get<Page<EntitySummary>>('/poets', params, f),
 
 	poet: (site: string, slug: string, f?: Fetcher) =>
@@ -98,9 +100,9 @@ export const api = {
 	entry: (site: string, slug: string, f?: Fetcher) =>
 		get<EntryDetail>(`/entries/${path(site)}/${path(slug)}`, {}, f),
 
-	/** Resolves a word code to its entry. Throws ApiError(404) for codes that do not resolve,
-	 *  which is normal: only rekhta's poetry codes are in the dictionary. */
-	lookup: (code: string, f?: Fetcher) => get<EntrySummary>('/entries/lookup', { code }, f),
+	/** Resolves a word code to its entry and senses. Throws ApiError(404) for codes that do not
+	 *  resolve, which is normal: only rekhta's poetry codes are in the dictionary. */
+	lookup: (code: string, f?: Fetcher) => get<EntryGloss>('/entries/lookup', { code }, f),
 
 	tags: (params: Paging & { site?: string } = {}, f?: Fetcher) =>
 		get<Page<TagSummary>>('/tags', params, f),
@@ -108,8 +110,6 @@ export const api = {
 	tagWorks: (tag: string, params: Paging = {}, f?: Fetcher) =>
 		get<Page<WorkSummary>>(`/tags/${path(tag)}/works`, params, f),
 
-	search: (
-		params: Paging & { q: string; kind?: 'works' | 'entries'; site?: string },
-		f?: Fetcher
-	) => get<Page<SearchHit>>('/search', params, f)
+	search: (params: Paging & { q: string; kind?: SearchKind; site?: string }, f?: Fetcher) =>
+		get<Page<SearchHit>>('/search', params, f)
 };

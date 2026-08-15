@@ -172,7 +172,11 @@ export interface paths {
 		};
 		/**
 		 * Lookup Entry
-		 * @description Resolve a word code to its entry, which is what a reader calls when a word is tapped.
+		 * @description Resolve a word code to its entry and what it means.
+		 *
+		 *     The senses come back with it because this is the tap-a-word route: the headword's three
+		 *     scripts are three spellings of the word the reader is already looking at, so a response
+		 *     without definitions answers nothing.
 		 *
 		 *     Only rekhta's poetry codes resolve, all 262,030 of them. The 592,351 codes carried by
 		 *     hindwi and sufinama works match no entry, and neither does the prose recovered from
@@ -350,6 +354,27 @@ export interface components {
 			relations: components['schemas']['Relation'][];
 			/** Shers */
 			shers: components['schemas']['Sher'][];
+		};
+		/**
+		 * EntryGloss
+		 * @description What a reader needs when they tap a word: the headword and what it means.
+		 *
+		 *     A summary alone is useless at the point of use, because the three headword scripts are
+		 *     three spellings of the word already on the page. The senses are the answer.
+		 */
+		EntryGloss: {
+			/** Site */
+			site: string;
+			/** Slug */
+			slug: string;
+			/** Headword */
+			headword: string | null;
+			/** Headword Hindi */
+			headword_hindi: string | null;
+			/** Headword Urdu */
+			headword_urdu: string | null;
+			/** Senses */
+			senses: components['schemas']['Sense'][];
 		};
 		/** EntrySummary */
 		EntrySummary: {
@@ -779,6 +804,8 @@ export interface operations {
 				site?: string | null;
 				/** @description poets, authors, translators, ... */
 				entity_type?: string | null;
+				/** @description match against the name, in any script */
+				q?: string | null;
 				/** @description items per page */
 				limit?: number;
 				/** @description items to skip */
@@ -933,7 +960,7 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content: {
-					'application/json': components['schemas']['EntrySummary'];
+					'application/json': components['schemas']['EntryGloss'];
 				};
 			};
 			/** @description Validation Error */
@@ -1057,7 +1084,7 @@ export interface operations {
 				/** @description words to search for, in any script */
 				q: string;
 				/** @description what to search */
-				kind?: 'works' | 'entries';
+				kind?: 'works' | 'entries' | 'poets';
 				/** @description restrict to one site */
 				site?: string | null;
 				/** @description items per page */
