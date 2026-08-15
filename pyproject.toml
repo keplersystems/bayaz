@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["bayaz", "bayaz-cli"]
+members = ["bayaz", "bayaz-cli", "bayaz-api"]
 
 [dependency-groups]
 dev = ["ruff>=0.15.0"]

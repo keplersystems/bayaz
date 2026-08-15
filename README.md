@@ -25,11 +25,11 @@ A uv workspace, one member per surface:
 
 | Member | What |
 |---|---|
-| `bayaz` | Core library — manifest, sitemap enumeration, paced crawl, raw store |
+| `bayaz` | Core library — manifest, sitemap enumeration, paced crawl, raw store, parsers, corpus |
 | `bayaz-cli` | The `bayaz` command |
+| `bayaz-api` | Read-only HTTP API over the corpus, and the `bayaz-serving` build that feeds it |
 
-`bayaz-mcp`, `bayaz-api` and `bayaz-web` join the workspace once there is a parsed corpus
-to serve; they all sit on the parser, which is the next component.
+`bayaz-mcp` and `bayaz-web` join the workspace next.
 
 `docs/` holds reference for the upstream JSON APIs the sites' mobile apps use, where one
 exists. Fetching a dictionary entry as JSON is far lighter on Rekhta than fetching the
@@ -110,6 +110,28 @@ All in the `bayaz` library:
 
 At the default pace (~3 requests/s per site, sites in parallel) the full first crawl is
 roughly 3–4 days. Times and sizes come from live measurement, not the sites' claims.
+
+## Serving the corpus
+
+`corpus.db` is shaped for writing, so the api serves a database derived from it rather than
+querying it directly. The build drops `parsed` (658 MB of crawl bookkeeping), resolves
+`works.author_id` (the poet link works on rekhta as published and matches nothing on hindwi
+or sufinama, because their `author_url` is a url whose poet is the segment after
+`/poets/`, not the last one), and adds the fts5 tables the corpus has none of.
+
+```bash
+uv run bayaz-serving data/corpus.db data/serve.db     # ~4 min, 6.58 GB
+uv run uvicorn bayaz_api.main:app                     # BAYAZ_SERVE_DB to point elsewhere
+```
+
+Fifteen routes, documented at `/docs` and machine-readable at `/openapi.json`. The one
+worth knowing about is the reader chain: `/works/{site}/{slug}` for the text in up to three
+scripts, `/works/{site}/{slug}/words` for every word's position, and `/entries/lookup?code=`
+to turn a word into its dictionary entry. Poetry codes resolve; prose recovered from
+rekhta.org's own pages uses a different encoding and returns 404 there by design.
+
+The database is opened read-only and never written, so there are no accounts, favourites or
+submissions. Adding them means a second, writable database, not a change to this one.
 
 ## Not yet built
 
