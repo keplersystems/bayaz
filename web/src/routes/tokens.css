@@ -1,0 +1,121 @@
+/* Design tokens.
+ *
+ * The site is ink on paper. Surfaces are warm and near-neutral, text is a warm near-black,
+ * and exactly one accent carries every interactive affordance. Poetry supplies the visual
+ * interest; the interface does not compete with it.
+ *
+ * Light is the primary theme because verse reads better on paper than on a screen pretending
+ * to be a terminal. Dark is a real second design, not an inversion.
+ *
+ * Every colour is defined here on bare `:root`. The dark blocks only redefine. */
+@theme {
+	/* Ink: the accent. Restrained indigo, used for links, focus and the current state, and
+	 * for nothing decorative. */
+	--color-primary: oklch(0.46 0.1 255);
+	--color-on-primary: oklch(0.99 0.004 90);
+	--color-primary-container: oklch(0.93 0.035 255);
+	--color-on-primary-container: oklch(0.3 0.09 258);
+
+	/* Paper */
+	--color-surface: oklch(0.985 0.005 85);
+	--color-surface-container: oklch(0.965 0.007 82);
+	--color-surface-container-high: oklch(0.94 0.009 80);
+	--color-surface-inverse: oklch(0.22 0.012 60);
+	--color-on-surface-inverse: oklch(0.95 0.006 85);
+
+	/* Text. `on-surface` is the verse itself, so it carries the most contrast in the system. */
+	--color-on-surface: oklch(0.24 0.014 55);
+	--color-on-surface-variant: oklch(0.5 0.012 60);
+	--color-on-surface-faint: oklch(0.63 0.01 65);
+
+	--color-outline: oklch(0.72 0.008 70);
+	--color-outline-variant: oklch(0.9 0.006 75);
+
+	--color-error: oklch(0.52 0.19 27);
+	--color-on-error: oklch(0.99 0.004 90);
+	--color-error-container: oklch(0.94 0.04 25);
+	--color-on-error-container: oklch(0.33 0.11 27);
+
+	/* Nastaliq needs a text face with descenders that fall far below the baseline, and a
+	 * Devanagari serif with a real shirorekha. Both are self-hosted, subset per script. */
+	--font-urdu: 'Noto Nastaliq Urdu', serif;
+	--font-hindi: 'Noto Serif Devanagari', serif;
+	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-serif: 'Source Serif 4', ui-serif, Georgia, serif;
+
+	/* Verse sizing. The three scripts have very different optical sizes at the same px, so
+	 * each gets its own step rather than sharing one scale. Nastaliq runs largest and needs
+	 * roughly double leading; Devanagari sits between. */
+	--text-verse-roman: 1.3125rem;
+	--text-verse-roman--line-height: 1.85;
+	--text-verse-hindi: 1.375rem;
+	--text-verse-hindi--line-height: 2;
+	--text-verse-urdu: 1.625rem;
+	--text-verse-urdu--line-height: 2.6;
+
+	--text-verse-roman-lg: 1.5rem;
+	--text-verse-roman-lg--line-height: 1.9;
+	--text-verse-hindi-lg: 1.625rem;
+	--text-verse-hindi-lg--line-height: 2;
+	--text-verse-urdu-lg: 2rem;
+	--text-verse-urdu-lg--line-height: 2.7;
+
+	--radius-m3-sm: 0.375rem;
+	--radius-m3-md: 0.625rem;
+	--radius-m3-lg: 1rem;
+	--radius-m3-full: 999px;
+}
+
+@layer theme {
+	:root:not([data-theme='light']) {
+		@media (prefers-color-scheme: dark) {
+			--color-primary: oklch(0.76 0.09 255);
+			--color-on-primary: oklch(0.2 0.06 258);
+			--color-primary-container: oklch(0.33 0.075 258);
+			--color-on-primary-container: oklch(0.9 0.045 255);
+
+			--color-surface: oklch(0.19 0.008 65);
+			--color-surface-container: oklch(0.23 0.009 65);
+			--color-surface-container-high: oklch(0.28 0.01 65);
+			--color-surface-inverse: oklch(0.94 0.006 85);
+			--color-on-surface-inverse: oklch(0.22 0.012 60);
+
+			--color-on-surface: oklch(0.93 0.008 80);
+			--color-on-surface-variant: oklch(0.75 0.008 75);
+			--color-on-surface-faint: oklch(0.6 0.008 70);
+
+			--color-outline: oklch(0.5 0.008 70);
+			--color-outline-variant: oklch(0.32 0.008 68);
+
+			--color-error: oklch(0.76 0.13 25);
+			--color-on-error: oklch(0.26 0.09 27);
+			--color-error-container: oklch(0.36 0.12 27);
+			--color-on-error-container: oklch(0.93 0.04 25);
+		}
+	}
+
+	:root[data-theme='dark'] {
+		--color-primary: oklch(0.76 0.09 255);
+		--color-on-primary: oklch(0.2 0.06 258);
+		--color-primary-container: oklch(0.33 0.075 258);
+		--color-on-primary-container: oklch(0.9 0.045 255);
+
+		--color-surface: oklch(0.19 0.008 65);
+		--color-surface-container: oklch(0.23 0.009 65);
+		--color-surface-container-high: oklch(0.28 0.01 65);
+		--color-surface-inverse: oklch(0.94 0.006 85);
+		--color-on-surface-inverse: oklch(0.22 0.012 60);
+
+		--color-on-surface: oklch(0.93 0.008 80);
+		--color-on-surface-variant: oklch(0.75 0.008 75);
+		--color-on-surface-faint: oklch(0.6 0.008 70);
+
+		--color-outline: oklch(0.5 0.008 70);
+		--color-outline-variant: oklch(0.32 0.008 68);
+
+		--color-error: oklch(0.76 0.13 25);
+		--color-on-error: oklch(0.26 0.09 27);
+		--color-error-container: oklch(0.36 0.12 27);
+		--color-on-error-container: oklch(0.93 0.04 25);
+	}
+}

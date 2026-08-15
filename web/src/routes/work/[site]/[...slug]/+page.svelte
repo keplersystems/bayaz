@@ -1,23 +1,31 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import Chip from '$lib/components/Chip.svelte';
 	import ScriptSwitcher from '$lib/components/ScriptSwitcher.svelte';
 	import ScriptText from '$lib/components/ScriptText.svelte';
 	import Verse from '$lib/components/Verse.svelte';
-	import { detectScript, humanizeSlug, titleIn, workBodies, type Script } from '$lib/scripts';
+	import {
+		detectScript,
+		humanizeSlug,
+		nameIn,
+		titleIn,
+		workBodies,
+		workTitle,
+		type Script
+	} from '$lib/scripts';
 
 	let { data }: { data: PageData } = $props();
 
 	const bodies = $derived(workBodies(data.work));
-
 	const available = $derived({
 		roman: 'roman' in bodies,
 		hindi: 'hindi' in bodies,
 		urdu: 'urdu' in bodies
 	});
 
-	const preference: Script[] = ['urdu', 'roman', 'hindi'];
-	const preferred = $derived(preference.find((s) => available[s]) ?? 'roman');
+	// Urdu first where it exists: it is the script most of this corpus was written in.
+	const preferred = $derived(
+		(['urdu', 'roman', 'hindi'] as Script[]).find((s) => available[s]) ?? 'roman'
+	);
 
 	let override = $state<Script | null>(null);
 	const script = $derived(override && available[override] ? override : preferred);
@@ -28,90 +36,85 @@
 		{ value: 'urdu' as Script, label: 'اردو', available: available.urdu }
 	]);
 
-	const displayTitle = $derived(
-		titleIn(data.work, script) ??
-			data.work.title ??
-			data.work.title_hindi ??
-			data.work.title_urdu ??
-			'Untitled'
-	);
-	const titleScript = $derived(detectScript(displayTitle));
-	const translit = $derived(
-		titleScript !== 'roman' && data.work.title_translit && data.work.title_translit !== displayTitle
-			? data.work.title_translit
-			: null
-	);
-
-	const titleClass = $derived(
-		titleScript === 'urdu'
-			? 'text-nastaliq-lg'
-			: titleScript === 'hindi'
-				? 'text-3xl leading-snug sm:text-4xl'
-				: 'font-serif text-3xl sm:text-4xl'
-	);
+	const title = $derived(titleIn(data.work, script) ?? workTitle(data.work));
+	const titleScript = $derived(detectScript(title));
 	const titleLang = $derived(
 		titleScript === 'urdu' ? 'ur' : titleScript === 'hindi' ? 'hi' : undefined
 	);
+	const titleSize = $derived(
+		{
+			urdu: 'text-2xl sm:text-3xl',
+			hindi: 'text-2xl sm:text-3xl',
+			roman: 'font-serif text-2xl sm:text-3xl'
+		}[titleScript]
+	);
 
-	const showWordHint = $derived(data.words.length > 0);
+	const translit = $derived(
+		titleScript !== 'roman' && data.work.title_translit !== title ? data.work.title_translit : null
+	);
+
+	// The work stores its poet's name in one script; the entity has all three, so the name
+	// follows the script being read wherever the poet page was captured.
+	const poetName = $derived(nameIn(data.poet, script) ?? data.work.author_name);
+
+	const poetHref = $derived(
+		data.work.author_slug
+			? `/poet/${data.work.site}/${encodeURIComponent(data.work.author_slug)}`
+			: null
+	);
 </script>
 
-<svelte:head>
-	<title>{displayTitle} · bayaz</title>
-</svelte:head>
+<svelte:head><title>{title} · bayaz</title></svelte:head>
 
-<article class="mx-auto max-w-3xl px-4 py-10">
-	<nav
-		class="mb-8 flex flex-wrap items-center gap-2 text-sm text-on-surface-variant"
-		aria-label="Breadcrumb"
-	>
-		<a href="/browse/{data.work.site}" class="capitalize hover:text-primary">{data.work.site}</a>
-		<span aria-hidden="true">/</span>
-		<a href="/browse/{data.work.site}/{data.work.work_type}" class="hover:text-primary">
+<article class="mx-auto max-w-3xl px-4 pt-8 pb-24 sm:px-6">
+	<p class="mb-10 text-sm text-on-surface-faint">
+		<a href="/browse/{data.work.site}/{data.work.work_type}" class="hover:text-on-surface-variant">
 			{humanizeSlug(data.work.work_type)}
 		</a>
-	</nav>
+	</p>
 
-	<header class="mb-8 text-center">
-		<h1 lang={titleLang} class="text-on-surface {titleClass}">
-			<ScriptText text={displayTitle} />
+	<!-- An Urdu title sets right; leaving the transliteration and the poet on the left would
+	     split the header down the middle, so the whole block follows the title's script. -->
+	<header class="mb-10 {titleScript === 'urdu' ? 'text-right' : ''}">
+		<h1 lang={titleLang} class="text-balance text-on-surface {titleSize}">
+			<ScriptText text={title} />
 		</h1>
 		{#if translit}
-			<p class="mt-2 font-serif text-lg text-on-surface-variant">{translit}</p>
+			<p class="mt-1.5 font-serif text-base text-on-surface-faint italic">{translit}</p>
 		{/if}
-		{#if data.work.author_name}
-			<p class="mt-3 text-lg text-on-surface-variant">
-				{#if data.work.author_slug}
+		{#if poetName}
+			<p class="mt-4 text-base text-on-surface-variant">
+				{#if poetHref}
 					<a
-						href="/poet/{data.work.site}/{encodeURIComponent(data.work.author_slug)}"
-						class="underline-offset-4 hover:text-primary hover:underline"
+						href={poetHref}
+						class="underline decoration-outline underline-offset-[0.35em] transition-colors hover:text-primary"
 					>
-						<ScriptText text={data.work.author_name} />
+						<ScriptText text={poetName} />
 					</a>
 				{:else}
-					<ScriptText text={data.work.author_name} />
+					<ScriptText text={poetName} />
 				{/if}
 			</p>
 		{/if}
 	</header>
 
-	<div class="mb-8 flex justify-center">
-		<ScriptSwitcher {options} value={script} onselect={(s) => (override = s)} />
-	</div>
-
-	{#if showWordHint}
-		<p class="mb-8 text-center text-xs tracking-wide text-on-surface-variant/70 uppercase">
-			Tap a word for its meaning
-		</p>
+	{#if options.filter((o) => o.available).length > 1}
+		<div class="mb-12 flex items-center justify-between border-y border-outline-variant/70 py-2.5">
+			<ScriptSwitcher {options} value={script} onselect={(s) => (override = s)} />
+			{#if data.words.length > 0}
+				<p class="hidden text-xs text-on-surface-faint sm:block">Tap any word for its meaning</p>
+			{/if}
+		</div>
 	{/if}
 
 	<Verse work={data.work} words={data.words} {script} />
 
 	{#if data.work.translation || data.work.explanation}
-		<section class="mt-14 grid gap-4 sm:grid-cols-2" aria-label="Translation and explanation">
+		<!-- The source's own gloss, kept visibly apart from the verse it describes. -->
+		<section class="mt-16 space-y-6 border-t border-outline-variant/70 pt-8">
 			{#if data.work.translation}
-				<div class="rounded-m3-lg bg-surface-container p-5">
-					<h2 class="mb-2 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase">
+				<div>
+					<h2 class="mb-1.5 text-xs tracking-[0.12em] text-on-surface-faint uppercase">
 						Translation
 					</h2>
 					<p class="font-serif text-lg leading-relaxed text-on-surface-variant">
@@ -120,8 +123,8 @@
 				</div>
 			{/if}
 			{#if data.work.explanation}
-				<div class="rounded-m3-lg bg-surface-container p-5">
-					<h2 class="mb-2 text-xs font-medium tracking-[0.15em] text-on-surface-variant uppercase">
+				<div>
+					<h2 class="mb-1.5 text-xs tracking-[0.12em] text-on-surface-faint uppercase">
 						Explanation
 					</h2>
 					<p class="font-serif text-lg leading-relaxed text-on-surface-variant">
@@ -133,18 +136,41 @@
 	{/if}
 
 	{#if data.work.tags.length > 0}
-		<section class="mt-10" aria-label="Tags">
-			<ul class="flex flex-wrap justify-center gap-2">
-				{#each data.work.tags as tag (tag)}
-					<li><Chip text={tag} href="/tag/{encodeURIComponent(tag)}" /></li>
-				{/each}
-			</ul>
-		</section>
+		<ul class="mt-12 flex flex-wrap gap-x-4 gap-y-2 text-sm" aria-label="Tags">
+			{#each data.work.tags as tag (tag)}
+				<li>
+					<a
+						href="/tag/{encodeURIComponent(tag)}"
+						class="text-on-surface-faint transition-colors hover:text-primary"
+					>
+						<ScriptText text={tag} />
+					</a>
+				</li>
+			{/each}
+		</ul>
 	{/if}
 
-	{#if data.work.source}
-		<p class="mt-12 text-center text-xs text-on-surface-variant/60">
-			Source · {data.work.source} · {data.work.site}
-		</p>
+	{#if data.more.length > 0 && poetHref}
+		<!-- Somewhere to go next, so a poem is a stop on a path rather than a dead end. -->
+		<section class="mt-16 border-t border-outline-variant/70 pt-8">
+			<h2 class="mb-4 text-sm text-on-surface-variant">
+				More by <ScriptText text={poetName ?? 'this poet'} />
+			</h2>
+			<ul class="space-y-2.5">
+				{#each data.more as work (work.slug)}
+					<li>
+						<a
+							href="/work/{work.site}/{work.slug}"
+							class="text-balance text-on-surface transition-colors hover:text-primary"
+						>
+							<ScriptText text={workTitle(work)} />
+						</a>
+					</li>
+				{/each}
+			</ul>
+			<a href={poetHref} class="mt-5 inline-block text-sm text-primary hover:underline">
+				All work by this poet
+			</a>
+		</section>
 	{/if}
 </article>

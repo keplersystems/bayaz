@@ -1,51 +1,45 @@
 <script lang="ts">
 	import type { WorkSummary } from '$lib/api';
-	import { altTitle, workTitle } from '$lib/scripts';
+	import { altTitle, humanizeSlug, workTitle } from '$lib/scripts';
 	import ScriptText from './ScriptText.svelte';
 
-	let { works, showType = false }: { works: WorkSummary[]; showType?: boolean } = $props();
+	let {
+		works,
+		showType = false,
+		/** Off while browsing one site, where naming it on every row says nothing. */
+		showSite = false
+	}: { works: WorkSummary[]; showType?: boolean; showSite?: boolean } = $props();
 </script>
 
-<ul class="divide-y divide-outline-variant">
+<ul class="divide-y divide-outline-variant/70">
 	{#each works as work (work.site + work.slug)}
 		{@const alt = altTitle(work)}
-		<li class="group py-4">
-			<div class="flex items-baseline justify-between gap-3">
-				<a
-					href="/work/{work.site}/{encodeURIComponent(work.slug)}"
-					class="min-w-0 font-serif text-lg leading-snug text-on-surface
-						transition-colors group-hover:text-primary"
+		<li>
+			<a href="/work/{work.site}/{encodeURIComponent(work.slug)}" class="group block py-4">
+				<p
+					class="font-serif text-lg leading-snug text-balance text-on-surface transition-colors group-hover:text-primary"
 				>
 					<ScriptText text={workTitle(work)} />
-				</a>
-				{#if showType}
-					<span class="shrink-0 text-xs tracking-wide text-on-surface-variant uppercase">
-						{work.work_type}
-					</span>
-				{/if}
-			</div>
-			<div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-on-surface-variant">
-				{#if work.author_name}
-					{#if work.author_slug}
-						<a
-							href="/poet/{work.site}/{encodeURIComponent(work.author_slug)}"
-							class="transition-colors hover:text-primary"
-						>
-							<ScriptText text={work.author_name} />
-						</a>
-					{:else}
-						<ScriptText text={work.author_name} />
-					{/if}
-				{/if}
+				</p>
 				{#if alt}
-					<span class="text-on-surface-variant/70">
+					<!-- The same title in another script, on its own line: an Urdu title set beside a
+					     Roman one puts two directions on one baseline and reads as a collision. -->
+					<p class="mt-0.5 text-on-surface-faint">
 						<ScriptText text={alt.text} />
-					</span>
+					</p>
 				{/if}
-				<span class="ml-auto hidden text-xs tracking-wide text-outline uppercase sm:inline">
-					{work.site}
-				</span>
-			</div>
+				<p class="mt-1.5 flex flex-wrap items-baseline gap-x-3 text-sm text-on-surface-variant">
+					{#if work.author_name}
+						<span><ScriptText text={work.author_name} /></span>
+					{/if}
+					{#if showType}
+						<span class="text-on-surface-faint">{humanizeSlug(work.work_type)}</span>
+					{/if}
+					{#if showSite}
+						<span class="text-on-surface-faint">{work.site}</span>
+					{/if}
+				</p>
+			</a>
 		</li>
 	{/each}
 </ul>

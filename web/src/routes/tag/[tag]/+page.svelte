@@ -36,7 +36,7 @@
 	{#if data.works.items.length === 0}
 		<StateMessage kind="empty" title="No works under this tag" />
 	{:else}
-		<WorkList works={data.works.items} showType />
+		<WorkList works={data.works.items} showType showSite />
 		<Pagination
 			total={data.works.total}
 			offset={data.offset}

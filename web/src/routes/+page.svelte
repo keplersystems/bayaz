@@ -3,9 +3,7 @@
 	import ScriptText from '$lib/components/ScriptText.svelte';
 	import SearchBox from '$lib/components/SearchBox.svelte';
 	import SiteCards from '$lib/components/SiteCards.svelte';
-	import BookMarked from 'lucide-svelte/icons/book-marked';
-	import Library from 'lucide-svelte/icons/library';
-	import Users from 'lucide-svelte/icons/users';
+	import { formatCount, workTitle } from '$lib/scripts';
 
 	let { data }: { data: PageData } = $props();
 
@@ -16,16 +14,15 @@
 		const f = data.featured;
 		if (!f) return null;
 		const urdu = (f.body_urdu ?? '').split('\n').filter(Boolean).slice(0, 2);
-		if (urdu.length === 2) return { script: 'urdu', lines: urdu };
+		if (urdu.length === 2) return { script: 'urdu' as const, lines: urdu };
 		const roman = (f.body ?? '').split('\n').filter(Boolean).slice(0, 2);
-		return roman.length > 0 ? { script: 'roman', lines: roman } : null;
+		return roman.length ? { script: 'roman' as const, lines: roman } : null;
 	});
 
-	const stats = $derived([
-		{ label: 'works', value: works },
-		{ label: 'poets', value: data.totalPoets },
-		{ label: 'dictionary entries', value: entries },
-		{ label: 'tags', value: data.totalTags }
+	const ways = $derived([
+		{ href: '/browse', title: 'Browse by form', note: `${formatCount(works)} works` },
+		{ href: '/poets', title: 'Poets and people', note: `${formatCount(data.totalPoets)} names` },
+		{ href: '/dictionary', title: 'The dictionary', note: `${formatCount(entries)} entries` }
 	]);
 </script>
 
@@ -33,117 +30,79 @@
 	<title>bayaz · a reading archive of Urdu and Hindi literature</title>
 	<meta
 		name="description"
-		content="A personal archive of the Rekhta Foundation's literary web: 258,232 works of Urdu and Hindi poetry and prose, 22,051 poets, and a 962,724-entry dictionary."
+		content="258,232 works of Urdu and Hindi literature from rekhta, hindwi, sufinama and the rekhtadictionary, readable in Urdu, Hindi and Roman, with a 962,724-entry dictionary behind every word of the poetry."
 	/>
 </svelte:head>
 
-<section class="relative overflow-hidden">
-	<div
-		class="pointer-events-none absolute inset-0 -z-10 opacity-60"
-		style="background: radial-gradient(60% 50% at 50% 0%, var(--color-primary-container), transparent 70%)"
-		aria-hidden="true"
-	></div>
-	<div class="mx-auto max-w-3xl px-4 pt-16 pb-14 text-center sm:pt-24">
-		<p class="text-xs font-medium tracking-[0.2em] text-on-surface-variant uppercase">
-			A reading archive
-		</p>
-		<h1 class="mt-4 font-serif text-4xl leading-tight text-balance text-on-surface sm:text-6xl">
-			Two centuries of Urdu &amp; Hindi verse, in one quiet place
-		</h1>
-		<p class="mx-auto mt-5 max-w-xl text-lg text-pretty text-on-surface-variant">
-			bayaz gathers the Rekhta Foundation's literary web — rekhta, hindwi, sufinama and the
-			rekhtadictionary — into a single library you can read in three scripts, with every word a tap
-			away from its meaning.
-		</p>
-		<div class="mx-auto mt-8 max-w-xl">
-			<SearchBox size="lg" placeholder="A poet, a ghazal, a word…" />
-		</div>
-		<dl
-			class="mx-auto mt-10 flex max-w-2xl flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-on-surface-variant"
+<!-- The word is the identity, so it is the image: Nastaliq set large is the one piece of
+     visual art this archive already owns. `pb` carries the descenders, which fall far below
+     the baseline at this size and would otherwise be clipped. -->
+<section class="mx-auto max-w-2xl px-4 pt-16 pb-16 text-center sm:px-6 sm:pt-24">
+	<h1>
+		<span
+			lang="ur"
+			class="block pb-4 text-[5rem] leading-[1.1] text-on-surface sm:text-[7rem] sm:leading-[1.05]"
 		>
-			{#each stats as stat (stat.label)}
-				<div class="flex items-baseline gap-1.5">
-					<dt>{stat.label}</dt>
-					<dd class="font-serif text-lg text-on-surface tabular-nums">
-						{stat.value.toLocaleString()}
-					</dd>
-				</div>
-			{/each}
-		</dl>
+			بیاض
+		</span>
+		<span class="mt-2 block font-serif text-2xl text-on-surface italic sm:text-3xl">bayaz</span>
+	</h1>
+	<p class="mx-auto mt-6 max-w-md text-lg leading-relaxed text-pretty text-on-surface-variant">
+		The notebook a reader fills by hand with the verse they mean to keep.
+	</p>
+	<p class="mt-3 text-sm text-on-surface-faint">
+		{formatCount(works)} of them, in Urdu, Hindi and Roman
+	</p>
+	<div class="mx-auto mt-10 max-w-md">
+		<SearchBox size="lg" placeholder="A poet, a ghazal, a word" />
 	</div>
 </section>
 
 {#if couplet && data.featured}
-	<section class="mx-auto max-w-3xl px-4" aria-label="A ghazal to begin with">
+	<!-- A real couplet before any navigation: the archive should introduce itself in its own
+	     voice rather than as a set of counts. -->
+	<section class="border-y border-outline-variant/70" aria-label="A couplet from the archive">
 		<a
 			href="/work/{data.featured.site}/{encodeURIComponent(data.featured.slug)}"
-			class="group block rounded-m3-xl border border-outline-variant
-				bg-surface-container p-6 text-center transition-colors hover:border-primary/50 sm:p-8"
+			class="group mx-auto block max-w-3xl px-4 py-14 sm:px-6 sm:py-20"
 		>
-			{#each couplet.lines as line (line)}
-				<p class="text-nastaliq text-on-surface">
-					{#if couplet.script === 'urdu'}
-						<ScriptText text={line} />
-					{:else}
-						<span class="font-serif">{line}</span>
-					{/if}
-				</p>
-			{/each}
-			<p class="mt-4 text-sm text-on-surface-variant">
-				{data.featured.title}
-				{#if data.featured.author_name}· <ScriptText text={data.featured.author_name} />{/if}
-				<span class="text-primary group-hover:underline">· read it</span>
+			<div
+				lang={couplet.script === 'urdu' ? 'ur' : undefined}
+				class="text-on-surface {couplet.script === 'urdu'
+					? 'text-verse-urdu sm:text-verse-urdu-lg'
+					: 'font-serif text-verse-roman sm:text-verse-roman-lg'}"
+			>
+				{#each couplet.lines as line (line)}
+					<p class="text-balance"><ScriptText text={line} /></p>
+				{/each}
+			</div>
+			<p class="mt-6 text-sm text-on-surface-faint">
+				{#if data.featured.author_name}<ScriptText text={data.featured.author_name} />,{/if}
+				<span class="transition-colors group-hover:text-primary">
+					{workTitle(data.featured)}
+				</span>
 			</p>
 		</a>
 	</section>
 {/if}
 
-<section class="mx-auto max-w-4xl px-4 py-16" aria-label="The collections">
-	<h2 class="text-center font-serif text-2xl text-on-surface">The collections</h2>
-	<p class="mt-1 mb-6 text-center text-sm text-on-surface-variant">Four sites, one shelf.</p>
-	<SiteCards sites={data.sites} />
+<section class="mx-auto max-w-3xl px-4 py-16 sm:px-6" aria-label="Ways in">
+	<ul class="divide-y divide-outline-variant/70">
+		{#each ways as way (way.href)}
+			<li>
+				<a href={way.href} class="group flex items-baseline justify-between gap-4 py-4">
+					<span
+						class="font-serif text-xl text-on-surface transition-colors group-hover:text-primary"
+						>{way.title}</span
+					>
+					<span class="text-sm text-on-surface-faint tabular-nums">{way.note}</span>
+				</a>
+			</li>
+		{/each}
+	</ul>
 </section>
 
-<section class="mx-auto max-w-4xl px-4 pb-16" aria-label="Ways in">
-	<div class="grid gap-4 sm:grid-cols-3">
-		<a
-			href="/browse"
-			class="flex items-center gap-3 rounded-m3-lg
-				bg-primary-container p-5 text-on-primary-container transition-colors hover:bg-primary/12"
-		>
-			<Library class="size-6 shrink-0" aria-hidden="true" />
-			<span
-				><span class="block font-medium">Browse the collections</span>
-				<span class="block text-sm text-on-surface-variant"
-					>{works.toLocaleString()} works by form</span
-				>
-			</span>
-		</a>
-		<a
-			href="/poets"
-			class="flex items-center gap-3 rounded-m3-lg
-				border border-outline-variant bg-surface-container p-5 transition-colors hover:border-primary/50"
-		>
-			<Users class="size-6 shrink-0" aria-hidden="true" />
-			<span
-				><span class="block font-medium text-on-surface">Poets &amp; people</span>
-				<span class="block text-sm text-on-surface-variant"
-					>{data.totalPoets.toLocaleString()} names, with dates</span
-				>
-			</span>
-		</a>
-		<a
-			href="/dictionary"
-			class="flex items-center gap-3 rounded-m3-lg
-				border border-outline-variant bg-surface-container p-5 transition-colors hover:border-primary/50"
-		>
-			<BookMarked class="size-6 shrink-0" aria-hidden="true" />
-			<span
-				><span class="block font-medium text-on-surface">The dictionary</span>
-				<span class="block text-sm text-on-surface-variant"
-					>{entries.toLocaleString()} entries, three scripts</span
-				>
-			</span>
-		</a>
-	</div>
+<section class="mx-auto max-w-3xl px-4 pb-24 sm:px-6" aria-label="The collections">
+	<h2 class="mb-5 text-sm text-on-surface-variant">The collections</h2>
+	<SiteCards sites={data.sites} />
 </section>

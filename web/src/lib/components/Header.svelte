@@ -10,64 +10,50 @@
 		{ href: '/dictionary', label: 'Dictionary' }
 	];
 
-	const active = (href: string) =>
-		page.url.pathname === href || page.url.pathname.startsWith(href + '/');
+	const active = (href: string) => page.url.pathname.startsWith(href);
 </script>
 
-<header class="sticky top-0 z-40 border-b border-outline-variant bg-surface/90 backdrop-blur">
-	<div class="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
+<header class="sticky top-0 z-40 border-b border-outline-variant/60 bg-surface/85 backdrop-blur-md">
+	<div class="mx-auto flex h-14 max-w-5xl items-center gap-5 px-4 sm:px-6">
 		<a
 			href="/"
-			class="mr-2 font-serif text-2xl text-on-surface italic transition-colors hover:text-primary"
+			class="font-serif text-xl tracking-tight italic transition-colors hover:text-primary"
 		>
 			bayaz
 		</a>
-		<nav class="hidden gap-1 sm:flex" aria-label="Primary">
+
+		<nav class="flex items-center gap-4 text-sm sm:gap-5" aria-label="Primary">
 			{#each links as link (link.href)}
 				<a
 					href={link.href}
 					aria-current={active(link.href) ? 'page' : undefined}
-					class="rounded-m3-full px-3 py-1.5
-						text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high
-						aria-current:bg-secondary-container aria-current:text-on-secondary-container"
+					class="text-on-surface-variant decoration-primary underline-offset-[0.4em]
+						transition-colors hover:text-on-surface aria-current:text-on-surface aria-current:underline"
 				>
 					{link.label}
 				</a>
 			{/each}
 		</nav>
+
 		<div class="ml-auto flex items-center gap-1">
-			<div class="hidden w-64 md:block">
+			<div class="hidden w-56 lg:block">
 				<SearchBox />
 			</div>
 			<a
 				href="/search"
 				aria-label="Search"
-				class="rounded-m3-full grid size-10 place-items-center
-					text-on-surface-variant transition-colors hover:bg-surface-container-high md:hidden"
+				class="grid size-9 place-items-center rounded-full
+					text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface lg:hidden"
 			>
-				<Search class="size-5" />
+				<Search class="size-4.5" />
 			</a>
 			<ThemeToggle />
 		</div>
 	</div>
-	<nav
-		class="flex gap-1 overflow-x-auto border-t border-outline-variant px-4 py-2 sm:hidden"
-		aria-label="Primary"
-	>
-		{#each links as link (link.href)}
-			<a
-				href={link.href}
-				aria-current={active(link.href) ? 'page' : undefined}
-				class="rounded-m3-full shrink-0
-					px-3 py-1 text-sm font-medium text-on-surface-variant aria-current:bg-secondary-container aria-current:text-on-secondary-container"
-			>
-				{link.label}
-			</a>
-		{/each}
-	</nav>
+
 	{#if navigating}
 		<div
-			class="absolute inset-x-0 bottom-0 h-0.5 origin-left animate-pulse bg-primary"
+			class="absolute inset-x-0 bottom-0 h-px animate-pulse bg-primary/70"
 			aria-hidden="true"
 		></div>
 	{/if}

@@ -27,7 +27,7 @@
 	<header class="mb-6">
 		<h1 class="font-serif text-3xl text-on-surface">Poets &amp; people</h1>
 		<p class="mt-1 text-sm text-on-surface-variant">
-			{formatCount(data.poets.total)} names across the archive — poets, authors, translators, publishers,
+			{formatCount(data.poets.total)} names across the archive: poets, authors, translators, publishers,
 			artists and editors.
 		</p>
 	</header>

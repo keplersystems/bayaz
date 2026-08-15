@@ -43,7 +43,7 @@
 		<StateMessage
 			kind="search"
 			title={`Nothing found for “${data.q}”`}
-			hint="Try another spelling or script — Roman, Devanagari or Nastaliq."
+			hint="Try another spelling, or another script: Roman, Devanagari or Nastaliq."
 		/>
 	{:else if data.results}
 		<nav class="mb-6 flex items-center gap-1" role="group" aria-label="Result type">

@@ -34,7 +34,6 @@
 	);
 
 	const bodyText = $derived(workBodies(work)[script] ?? '');
-
 	const bodyLines = $derived(bodyText.split('\n').filter((line) => line.trim() !== ''));
 	const lines = $derived<(Word[] | string)[]>(variant ? variant.lines : bodyLines);
 	const groups = $derived(couplets(lines));
@@ -78,63 +77,60 @@
 		}
 	}
 
-	const typography = $derived(
+	const verseSize = $derived(
 		{
-			roman: 'font-serif text-xl leading-relaxed sm:text-2xl sm:leading-loose',
-			hindi: 'text-xl leading-loose sm:text-2xl',
-			urdu: 'text-nastaliq sm:text-nastaliq-lg'
+			roman: 'font-serif text-verse-roman sm:text-verse-roman-lg',
+			hindi: 'text-verse-hindi sm:text-verse-hindi-lg',
+			urdu: 'text-verse-urdu sm:text-verse-urdu-lg'
 		}[script]
 	);
 
-	const containerLang = $derived(script === 'urdu' ? 'ur' : script === 'hindi' ? 'hi' : undefined);
+	const lang = $derived(script === 'urdu' ? 'ur' : script === 'hindi' ? 'hi' : undefined);
 </script>
 
-{#if bodyLines.length > 0}
-	{#if prose}
-		<div class="mx-auto max-w-2xl">
-			{#each paragraphs as paragraph, i (i)}
-				<p class="mb-6 text-on-surface last:mb-0 {typography}">
-					<ScriptText text={paragraph} />
-				</p>
-			{/each}
-		</div>
-	{:else}
-		<div
-			lang={containerLang}
-			class="mx-auto max-w-xl space-y-8 text-center text-on-surface {typography}
-				{script === 'urdu' ? 'sm:space-y-10' : ''}"
-		>
-			{#each groups as group, gi (gi)}
-				<div class="space-y-1">
-					{#each group as line, li (gi + '-' + li)}
-						<p>
-							{#if typeof line === 'string'}
-								<ScriptText text={line} />
-							{:else}
-								{#each line as word (word.line + '-' + word.ord)}
-									{#if word.code}
-										<button
-											type="button"
-											class="-mx-0.5 rounded-m3-sm px-0.5 transition-colors
-												hover:bg-surface-container-high {active?.code === word.code ? 'bg-secondary-container' : ''}"
-											aria-expanded={active?.code === word.code}
-											onclick={(e) => lookup(word, e.currentTarget)}>{word.word}</button
-										>
-									{:else}
-										<span>{word.word}</span>
-									{/if}
-								{/each}
-							{/if}
-						</p>
-					{/each}
-				</div>
-			{/each}
-		</div>
-	{/if}
-{:else}
-	<p class="mx-auto max-w-xl py-8 text-center text-on-surface-variant">
+{#if bodyLines.length === 0}
+	<p class="py-10 text-center text-sm text-on-surface-variant">
 		This work is catalogued by title only.
 	</p>
+{:else if prose}
+	<div class="mx-auto max-w-[38rem]" {lang}>
+		{#each paragraphs as paragraph, i (i)}
+			<p class="mb-6 text-on-surface last:mb-0 {verseSize}">
+				<ScriptText text={paragraph} />
+			</p>
+		{/each}
+	</div>
+{:else}
+	<!-- Couplets are the unit of a ghazal: each stands alone, so they are separated by more
+	     space than the two lines within one. -->
+	<div {lang} class="mx-auto w-fit max-w-full text-on-surface {verseSize}">
+		{#each groups as group, gi (gi)}
+			<div class="mb-9 last:mb-0 sm:mb-11">
+				{#each group as line, li (gi + '-' + li)}
+					<p class="text-balance">
+						{#if typeof line === 'string'}
+							<ScriptText text={line} />
+						{:else}
+							<!-- Words are stored as bare tokens with no whitespace, so the separator is
+							     rendered here. Without it every line runs together as one word. -->
+							{#each line as word, wi (word.line + '-' + word.ord)}
+								<!-- The affordance appears on hover rather than sitting under every word: a
+								     poem underlined throughout reads as a form, not as verse. -->
+								{#if wi > 0}{' '}{/if}{#if word.code}<button
+										type="button"
+										class="cursor-pointer decoration-dotted underline-offset-[0.3em]
+											transition-colors hover:text-primary hover:underline
+											aria-expanded:text-primary aria-expanded:underline"
+										aria-expanded={active?.code === word.code}
+										onclick={(e) => lookup(word, e.currentTarget)}>{word.word}</button
+									>{:else}{word.word}{/if}
+							{/each}
+						{/if}
+					</p>
+				{/each}
+			</div>
+		{/each}
+	</div>
 {/if}
 
 <WordPopover {active} {status} {entry} onclose={() => (active = null)} />

@@ -6,11 +6,13 @@
 		initial = '',
 		size = 'md',
 		autofocus = false,
-		placeholder = 'Search works and words…',
+		placeholder = 'Search',
 		ariaLabel = 'Search the archive',
 		kind
 	}: {
 		initial?: string;
+		/** `lg` is the page-level search; `md` sits in the header, where a submit button would
+		 *  crowd the field until the placeholder truncates. Enter submits either way. */
 		size?: 'md' | 'lg';
 		autofocus?: boolean;
 		placeholder?: string;
@@ -35,12 +37,14 @@
 <form
 	role="search"
 	onsubmit={submit}
-	class="rounded-m3-full flex items-center gap-2 border border-transparent
-		bg-surface-container px-4 transition-colors focus-within:border-primary {size === 'lg'
-		? 'h-14 text-lg'
-		: 'h-10 text-sm'}"
+	class="flex w-full items-center gap-2.5
+		rounded-full border border-outline-variant bg-surface-container transition-colors focus-within:border-primary
+		{size === 'lg' ? 'h-13 px-5 text-base' : 'h-9 px-3.5 text-sm'}"
 >
-	<Search class="size-5 shrink-0 text-on-surface-variant" aria-hidden="true" />
+	<Search
+		class="shrink-0 text-on-surface-faint {size === 'lg' ? 'size-5' : 'size-4'}"
+		aria-hidden="true"
+	/>
 	<input
 		type="search"
 		name="q"
@@ -49,11 +53,6 @@
 		{placeholder}
 		aria-label={ariaLabel}
 		class="min-w-0 flex-1 bg-transparent text-on-surface outline-none
-			placeholder:text-on-surface-variant"
+			placeholder:text-on-surface-faint [&::-webkit-search-cancel-button]:appearance-none"
 	/>
-	<button
-		type="submit"
-		class="rounded-m3-full hidden shrink-0 bg-primary px-4 py-1.5 text-sm font-medium
-			text-on-primary sm:block">Search</button
-	>
 </form>

@@ -214,7 +214,7 @@
 							{/each}
 							{#if sher.poet}
 								<footer class="mt-2 text-sm text-on-surface-variant">
-									— <ScriptText text={sher.poet} />
+									<ScriptText text={sher.poet} />
 								</footer>
 							{/if}
 						</blockquote>

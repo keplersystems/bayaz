@@ -38,7 +38,7 @@
 	type="button"
 	onclick={toggle}
 	aria-label={resolved === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-	class="rounded-m3-full grid size-10 place-items-center text-on-surface-variant
+	class="grid size-10 place-items-center rounded-m3-full text-on-surface-variant
 		transition-colors hover:bg-surface-container-high"
 >
 	{#if resolved === 'dark'}<Sun class="size-5" />{:else}<Moon class="size-5" />{/if}

@@ -55,6 +55,21 @@ export function altTitle(work: Titled): { script: Script; text: string } | null 
 	return null;
 }
 
+type Named = {
+	name?: string | null;
+	name_hindi?: string | null;
+	name_urdu?: string | null;
+};
+
+/** A poet's name in the script being read. Only 62% of entities carry all three, so the
+ *  caller's fallback (usually the work's own `author_name`) still has to be there. */
+export function nameIn(entity: Named | null | undefined, script: Script): string | null {
+	if (!entity) return null;
+	if (script === 'urdu') return entity.name_urdu ?? null;
+	if (script === 'hindi') return entity.name_hindi ?? null;
+	return entity.name ?? null;
+}
+
 type Bodied = {
 	body?: string | null;
 	body_hindi?: string | null;

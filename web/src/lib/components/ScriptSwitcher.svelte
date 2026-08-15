@@ -10,28 +10,27 @@
 		options: { value: Script; label: string; available: boolean }[];
 		onselect: (script: Script) => void;
 	} = $props();
+
+	const shown = $derived(options.filter((option) => option.available));
 </script>
 
-<div
-	class="rounded-m3-full inline-flex items-center gap-1 bg-surface-container p-1"
-	role="radiogroup"
-	aria-label="Reading script"
->
-	{#each options as option (option.value)}
-		<button
-			type="button"
-			role="radio"
-			aria-checked={value === option.value}
-			disabled={!option.available}
-			onclick={() => option.available && onselect(option.value)}
-			class="rounded-m3-full px-4 py-1.5 text-sm font-medium transition-colors
-				{value === option.value
-				? 'bg-primary text-on-primary'
-				: option.available
-					? 'text-on-surface-variant hover:bg-surface-container-high'
-					: 'cursor-not-allowed text-outline'}"
-		>
-			{option.label}
-		</button>
-	{/each}
-</div>
+<!-- Only the scripts a work actually has are offered. A control that renders three choices and
+     disables two reads as breakage rather than as the archive's shape. -->
+{#if shown.length > 1}
+	<div class="flex items-center gap-3 text-sm" role="radiogroup" aria-label="Reading script">
+		{#each shown as option (option.value)}
+			<button
+				type="button"
+				role="radio"
+				aria-checked={value === option.value}
+				onclick={() => onselect(option.value)}
+				class="cursor-pointer text-on-surface-faint decoration-primary
+					underline-offset-[0.45em] transition-colors hover:text-on-surface aria-checked:text-on-surface
+					aria-checked:underline"
+				lang={option.value === 'urdu' ? 'ur' : option.value === 'hindi' ? 'hi' : undefined}
+			>
+				{option.label}
+			</button>
+		{/each}
+	</div>
+{/if}
