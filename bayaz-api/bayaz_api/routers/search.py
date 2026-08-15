@@ -1,41 +1,45 @@
 """Full-text search across works and dictionary entries."""
 
+from dataclasses import dataclass
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
 from bayaz_api import db
+from bayaz_api.listing import Pages
 from bayaz_api.models import Page, SearchHit
-from bayaz_api.pagination import Pages
 
 router = APIRouter(tags=["search"])
 
 
-def _match(query: str) -> str:
-    """Turn user input into an fts5 MATCH expression.
-
-    Every token is quoted, so the fts5 query grammar never sees the user's punctuation: an
-    apostrophe or a hyphen would otherwise be a syntax error rather than a search. Quoting
-    also makes the tokens implicit-AND terms, which is what a reader expects from a search
-    box.
-    """
-    tokens = [token.replace('"', '""') for token in query.split()]
-    return " ".join(f'"{token}"' for token in tokens)
+@dataclass(frozen=True, slots=True)
+class _Target:
+    kind: str
+    index: str
+    source: str
+    title: str
 
 
-_WORK_HITS = """
-    SELECT w.site, w.slug, 'work' AS kind, coalesce(w.title, w.title_hindi, w.title_urdu) AS title,
-           snippet(works_fts, -1, '', '', ' ... ', 24) AS snippet
-    FROM works_fts JOIN works w ON w.id = works_fts.rowid
-    WHERE works_fts MATCH ?
-"""
+_TARGETS = {
+    "works": _Target(
+        kind="work",
+        index="works_fts",
+        source="works_fts JOIN works t ON t.id = works_fts.rowid",
+        title="coalesce(t.title, t.title_hindi, t.title_urdu)",
+    ),
+    "entries": _Target(
+        kind="entry",
+        index="entries_fts",
+        source="entries_fts JOIN entries t ON t.id = entries_fts.rowid",
+        title="coalesce(t.headword, t.headword_hindi, t.headword_urdu)",
+    ),
+}
 
-_ENTRY_HITS = """
-    SELECT e.site, e.slug, 'entry' AS kind, coalesce(e.headword, e.headword_hindi, e.headword_urdu) AS title,
-           snippet(entries_fts, 3, '', '', ' ... ', 24) AS snippet
-    FROM entries_fts JOIN entries e ON e.id = entries_fts.rowid
-    WHERE entries_fts MATCH ?
-"""
+
+def _expression(query: str) -> str:
+    """Quote every token, so the fts5 query grammar never sees the user's punctuation: an
+    apostrophe or a hyphen would otherwise be a syntax error rather than a search."""
+    return " ".join(f'"{token.replace('"', '""')}"' for token in query.split())
 
 
 @router.get("/search", response_model=Page[SearchHit])
@@ -45,24 +49,26 @@ def search(
     kind: Annotated[Literal["works", "entries"], Query(description="what to search")] = "works",
     site: Annotated[str | None, Query(description="restrict to one site")] = None,
 ):
-    expression = _match(q)
+    expression = _expression(q)
     if not expression:
         return Page(items=[], total=0, limit=paging.limit, offset=paging.offset)
 
-    hits, table, alias = (_WORK_HITS, "works_fts", "w") if kind == "works" else (_ENTRY_HITS, "entries_fts", "e")
-    joined = "works w ON w.id = works_fts.rowid" if kind == "works" else "entries e ON e.id = entries_fts.rowid"
+    target = _TARGETS[kind]
+    clause = f"{target.index} MATCH ?" + (" AND t.site = ?" if site else "")
+    parameters = [expression, site] if site else [expression]
 
-    condition, parameters = "", [expression]
-    if site:
-        condition = f" AND {alias}.site = ?"
-        parameters.append(site)
-
-    total = db.scalar(
-        f"SELECT count(*) FROM {table} JOIN {joined} WHERE {table} MATCH ?{condition}",
-        parameters,
-    )
-    rows = db.rows(
-        f"{hits}{condition} ORDER BY rank LIMIT ? OFFSET ?",
+    total = db.scalar(f"SELECT count(*) FROM {target.source} WHERE {clause}", parameters)
+    found = db.rows(
+        # Column -1 snippets whichever column matched. It is null when that column is null,
+        # which happens on the 116,529 entries that have no senses.
+        f"SELECT t.site, t.slug, '{target.kind}' kind, {target.title} title,"
+        f"       coalesce(snippet({target.index}, -1, '', '', ' ... ', 24), '') snippet"
+        f" FROM {target.source} WHERE {clause} ORDER BY rank LIMIT ? OFFSET ?",
         [*parameters, paging.limit, paging.offset],
     )
-    return Page(items=[SearchHit(**dict(row)) for row in rows], total=total, limit=paging.limit, offset=paging.offset)
+    return Page(
+        items=[SearchHit(**dict(row)) for row in found],
+        total=total,
+        limit=paging.limit,
+        offset=paging.offset,
+    )

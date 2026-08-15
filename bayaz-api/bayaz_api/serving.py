@@ -1,21 +1,8 @@
 """Build `serve.db` from the published corpus.
 
-The corpus is shaped for writing: one row per thing parsers found, indexed only where the
-parse run needed it. Serving asks different questions, so the API keeps its own derived
-database rather than querying the corpus directly. Three differences, each measured against
-the real corpus rather than assumed:
-
-`parsed` is dropped. It records which url each parser version consumed, which is 658 MB of
-crawl bookkeeping an http api has no use for.
-
-`works.author_id` is resolved. rekhta stores the poet's guid in `author_url` and joins to
-`entities` as it stands; the platform sites store a url, and `platform.py` frequently caught
-the poet's per-type listing link ("/poets/<poet>/ghazals?lang=ur"), so the poet is the
-segment after the entity type rather than the last one. Without this, poet pages work on
-rekhta and return nothing on hindwi and sufinama.
-
-Full-text search is built. The corpus has no fts table at all, and `LIKE '%...%'` over the
-912 MB `works` table measured 470-670 ms per query.
+The corpus is shaped for writing and indexed only where the parse run needed it, so the api
+serves a database derived from it: `parsed` dropped, `works.author_id` resolved, fts5 added.
+See `bayaz-api/README.md` for why each of those is necessary.
 """
 
 import argparse

@@ -1,23 +1,28 @@
 # bayaz
 
-Personal archive of the Rekhta Foundation's literary web: **rekhtadictionary.com**,
-**hindwi.org**, and **sufinama.org**. A bayāz (بیاض) is the notebook in which Urdu poets
-and readers hand-copied the verses they wanted to keep.
+Personal archive of the Rekhta Foundation's literary web: **rekhta.org**,
+**rekhtadictionary.com**, **hindwi.org**, and **sufinama.org**. A bayāz (بیاض) is the
+notebook in which Urdu poets and readers hand-copied the verses they wanted to keep.
 
 Raw first, parse later: the crawl stores every page exactly as served, gzipped, beside a
 SQLite manifest that knows what exists and what has been captured. Structure extraction
 happens offline against the local store, so a parser bug never costs a re-crawl.
 
-## Scale (measured 2026-08-03)
+## Scale (measured 2026-08-16)
 
-| Site | Pages | Notes |
+| Site | Captures | Uncompressed |
 |---|---|---|
-| rekhtadictionary | ~933k | ~284k words × 3 script variants + relation pages; variants carry different content |
-| hindwi | ~408k | 343k dictionary entries, 45.5k works, 19k entity pages |
-| sufinama | ~404k | 296k dictionary entries, 61.7k works, 45.8k entity pages |
+| rekhta | 742,047 | 10.2 GB |
+| hindwi | 460,136 | 27.3 GB |
+| sufinama | 428,971 | 86.4 GB |
+| rekhtadictionary | 408,872 | 4.7 GB |
+| | **2,040,026** | **128.6 GB** |
 
-Roughly 1.75M pages, ~140 GB stored. Ebooks (scanned page images) are excluded for now.
-Pronunciation audio urls are recorded in the manifest but not yet downloaded.
+385 pages failed, none pending. Parsed into 258,232 works, 962,724 dictionary entries,
+2,092,863 senses, 22,051 poets and 53.1M word positions.
+
+Ebooks (scanned page images) are excluded. Audio and video urls are recorded in the manifest
+but the files are not downloaded.
 
 ## Layout
 
@@ -113,29 +118,18 @@ roughly 3–4 days. Times and sizes come from live measurement, not the sites' c
 
 ## Serving the corpus
 
-`corpus.db` is shaped for writing, so the api serves a database derived from it rather than
-querying it directly. The build drops `parsed` (658 MB of crawl bookkeeping), resolves
-`works.author_id` (the poet link works on rekhta as published and matches nothing on hindwi
-or sufinama, because their `author_url` is a url whose poet is the segment after
-`/poets/`, not the last one), and adds the fts5 tables the corpus has none of.
-
-```bash
-uv run bayaz-serving data/corpus.db data/serve.db     # ~4 min, 6.58 GB
-uv run uvicorn bayaz_api.main:app                     # BAYAZ_SERVE_DB to point elsewhere
-```
-
-Fifteen routes, documented at `/docs` and machine-readable at `/openapi.json`. The one
-worth knowing about is the reader chain: `/works/{site}/{slug}` for the text in up to three
-scripts, `/works/{site}/{slug}/words` for every word's position, and `/entries/lookup?code=`
-to turn a word into its dictionary entry. Poetry codes resolve; prose recovered from
-rekhta.org's own pages uses a different encoding and returns 404 there by design.
-
-The database is opened read-only and never written, so there are no accounts, favourites or
-submissions. Adding them means a second, writable database, not a change to this one.
+See [bayaz-api/README.md](bayaz-api/README.md).
 
 ## Not yet built
 
-- Audio download job (urls accumulate in `media` during the crawl).
-- The structure parsers: dictionary entries (senses per language, examples, relations),
-  works, entities — all offline against `raw/`.
-- rekhta.org itself: different structure, planned after these three are captured.
+- Audio and video download (1,213,295 urls accumulated in `media` during the crawl).
+- `bayaz-mcp` and `bayaz-web`.
+
+## Known gaps
+
+- 18,158 hindwi quote pages parse to a title and no body: their text sits in `.quoteLanding`
+  rather than the `pMC` container `platform.py` reads, so it is in `raw/` but not the corpus.
+  Most duplicate a quote already held under its content guid; roughly 700 are only here.
+- 20 hindwi works carry `</span>` fragments in their bodies, from the same span handling.
+- 6,064 works have no poet link: their poet page was never captured, or they carry no author.
+- 385 pages failed permanently, 344 of them sufinama urls its own server rejects.

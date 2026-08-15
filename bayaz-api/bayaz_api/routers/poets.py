@@ -1,4 +1,4 @@
-"""Poets and the other contributor types the sites distinguish: authors, translators,
+"""Poets, and the other contributor types the sites distinguish: authors, translators,
 editors, publishers, artists, contributors."""
 
 from typing import Annotated
@@ -6,8 +6,8 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from bayaz_api import db
+from bayaz_api.listing import Filters, Pages, page
 from bayaz_api.models import EntityDetail, EntitySummary, Page, WorkSummary
-from bayaz_api.pagination import Pages, where
 
 router = APIRouter(tags=["poets"])
 
@@ -20,31 +20,18 @@ def list_poets(
     site: Annotated[str | None, Query(description="rekhta, hindwi or sufinama")] = None,
     entity_type: Annotated[str | None, Query(description="poets, authors, translators, ...")] = None,
 ):
-    conditions, parameters = [], []
-    if site:
-        conditions.append("site = ?")
-        parameters.append(site)
-    if entity_type:
-        conditions.append("entity_type = ?")
-        parameters.append(entity_type)
-
-    clause = where(conditions)
-    total = db.scalar(f"SELECT count(*) FROM entities{clause}", parameters)
-    rows = db.rows(
-        f"SELECT {_COLUMNS} FROM entities{clause} ORDER BY name_translit, id LIMIT ? OFFSET ?",
-        [*parameters, paging.limit, paging.offset],
-    )
-    return Page(
-        items=[EntitySummary(**dict(row)) for row in rows], total=total, limit=paging.limit, offset=paging.offset
-    )
+    filters = Filters()
+    filters.add("site = ?", site)
+    filters.add("entity_type = ?", entity_type)
+    return page(EntitySummary, _COLUMNS, "entities", "name_translit, id", paging, filters)
 
 
 @router.get("/poets/{site}/{slug}", response_model=EntityDetail)
 def get_poet(site: str, slug: str):
-    row = db.row(f"SELECT id, {_COLUMNS}, description FROM entities WHERE site = ? AND slug = ?", (site, slug))
-    if row is None:
+    found = db.row(f"SELECT id, {_COLUMNS}, description FROM entities WHERE site = ? AND slug = ?", (site, slug))
+    if found is None:
         raise HTTPException(status_code=404, detail=f"no poet {site}/{slug}")
-    fields = dict(row)
+    fields = dict(found)
     works = db.scalar("SELECT count(*) FROM works WHERE author_id = ?", (fields.pop("id"),))
     return EntityDetail(**fields, works=works)
 
@@ -55,11 +42,11 @@ def get_poet_works(site: str, slug: str, paging: Pages):
     if entity_id is None:
         raise HTTPException(status_code=404, detail=f"no poet {site}/{slug}")
 
-    total = db.scalar("SELECT count(*) FROM works WHERE author_id = ?", (entity_id,))
-    rows = db.rows(
-        "SELECT w.site, w.slug, w.work_type, w.title, w.title_translit, w.title_hindi, w.title_urdu,"
-        "       w.author_name, ? AS author_slug"
-        " FROM works w WHERE w.author_id = ? ORDER BY w.work_type, w.id LIMIT ? OFFSET ?",
-        (slug, entity_id, paging.limit, paging.offset),
+    filters = Filters()
+    filters.add("w.author_id = ?", entity_id)
+    columns = (
+        "w.site, w.slug, w.work_type, w.title, w.title_translit, w.title_hindi, w.title_urdu,"
+        " w.author_name, e.slug AS author_slug"
     )
-    return Page(items=[WorkSummary(**dict(row)) for row in rows], total=total, limit=paging.limit, offset=paging.offset)
+    source = "works w JOIN entities e ON e.id = w.author_id"
+    return page(WorkSummary, columns, source, "w.work_type, w.id", paging, filters)

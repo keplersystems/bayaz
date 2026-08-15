@@ -72,9 +72,13 @@ class WorkDetail(WorkSummary):
 
 
 class Word(BaseModel):
-    """One word occurrence in reading order. `code` resolves to a dictionary entry on the
-    poetry corpus; the prose recovered from the website uses a different encoding and does
-    not resolve, so it is returned as null rather than as a link that would break."""
+    """One word occurrence in reading order.
+
+    `code` is the source's own token, returned as it was captured. Rekhta's poetry codes
+    resolve through `/entries/lookup`; the codes on hindwi and sufinama works, and on the
+    prose recovered from rekhta.org's pages, use other encodings and resolve to nothing. A
+    client cannot tell which from the code alone, so treat a 404 from lookup as normal.
+    """
 
     line: int
     ord: int
@@ -135,3 +139,8 @@ class SearchHit(BaseModel):
     kind: str
     title: str | None
     snippet: str
+
+
+class Health(BaseModel):
+    status: str
+    works: int

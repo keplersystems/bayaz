@@ -5,8 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 
 from bayaz_api import db
+from bayaz_api.listing import Filters, Pages, page
 from bayaz_api.models import EntryDetail, EntrySummary, Page, Relation, Sense, Sher
-from bayaz_api.pagination import Pages, where
 
 router = APIRouter(tags=["dictionary"])
 
@@ -18,45 +18,34 @@ def list_entries(
     paging: Pages,
     site: Annotated[str | None, Query(description="rekhtadictionary, hindwi, rekhta or sufinama")] = None,
 ):
-    conditions, parameters = ([], [])
-    if site:
-        conditions.append("site = ?")
-        parameters.append(site)
-
-    clause = where(conditions)
-    total = db.scalar(f"SELECT count(*) FROM entries{clause}", parameters)
-    rows = db.rows(
-        f"SELECT {_COLUMNS} FROM entries{clause} ORDER BY id LIMIT ? OFFSET ?",
-        [*parameters, paging.limit, paging.offset],
-    )
-    return Page(
-        items=[EntrySummary(**dict(row)) for row in rows], total=total, limit=paging.limit, offset=paging.offset
-    )
+    filters = Filters()
+    filters.add("site = ?", site)
+    return page(EntrySummary, _COLUMNS, "entries", "id", paging, filters)
 
 
 @router.get("/entries/lookup", response_model=EntrySummary)
 def lookup_entry(code: Annotated[str, Query(description="a `code` from a work's word positions")]):
     """Resolve a word code to its entry, which is what a reader calls when a word is tapped.
 
-    Only the poetry corpus carries codes that resolve: rekhta.org's own pages encode the
-    same words differently, so prose recovered from the website returns 404 here by design
-    rather than by omission.
+    Only rekhta's poetry codes resolve, all 262,030 of them. The 592,351 codes carried by
+    hindwi and sufinama works match no entry, and neither does the prose recovered from
+    rekhta.org's own pages, which encodes the same words differently. Those 404 by design.
     """
-    row = db.row(f"SELECT {_COLUMNS} FROM entries WHERE slug = ? LIMIT 1", (code,))
-    if row is None:
+    found = db.row(f"SELECT {_COLUMNS} FROM entries WHERE slug = ? ORDER BY id LIMIT 1", (code,))
+    if found is None:
         raise HTTPException(status_code=404, detail=f"no entry for code {code}")
-    return EntrySummary(**dict(row))
+    return EntrySummary(**dict(found))
 
 
 @router.get("/entries/{site}/{slug:path}", response_model=EntryDetail)
 def get_entry(site: str, slug: str):
-    row = db.row(
+    found = db.row(
         f"SELECT id, {_COLUMNS}, vazn, trivia, audio_url, video_url FROM entries WHERE site = ? AND slug = ?",
         (site, slug),
     )
-    if row is None:
+    if found is None:
         raise HTTPException(status_code=404, detail=f"no entry {site}/{slug}")
-    fields = dict(row)
+    fields = dict(found)
     entry_id = fields.pop("id")
 
     senses = db.rows("SELECT lang, pos, definition FROM senses WHERE entry_id = ? ORDER BY lang, ord", (entry_id,))
