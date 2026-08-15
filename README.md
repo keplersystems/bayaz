@@ -33,8 +33,9 @@ A uv workspace, one member per surface:
 | `bayaz` | Core library — manifest, sitemap enumeration, paced crawl, raw store, parsers, corpus |
 | `bayaz-cli` | The `bayaz` command |
 | `bayaz-api` | Read-only HTTP API over the corpus, and the `bayaz-serving` build that feeds it |
+| `web` | The reading site: SvelteKit `adapter-static`, talks to `bayaz-api` |
 
-`bayaz-mcp` and `bayaz-web` join the workspace next.
+`bayaz-mcp` joins the workspace next.
 
 `docs/` holds reference for the upstream JSON APIs the sites' mobile apps use, where one
 exists. Fetching a dictionary entry as JSON is far lighter on Rekhta than fetching the
@@ -118,12 +119,12 @@ roughly 3–4 days. Times and sizes come from live measurement, not the sites' c
 
 ## Serving the corpus
 
-See [bayaz-api/README.md](bayaz-api/README.md).
+The API: [bayaz-api/README.md](bayaz-api/README.md). The site: [web/README.md](web/README.md).
 
 ## Not yet built
 
 - Audio and video download (1,213,295 urls accumulated in `media` during the crawl).
-- `bayaz-mcp` and `bayaz-web`.
+- `bayaz-mcp`.
 
 ## Known gaps
 

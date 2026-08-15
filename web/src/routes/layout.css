@@ -1,0 +1,210 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+/* Self-hosted variable fonts, subsets limited to the scripts the archive actually uses. */
+@font-face {
+	font-family: 'Inter Variable';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('/fonts/Inter-latin-normal.woff2') format('woff2');
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'Inter Variable';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('/fonts/Inter-latin-ext-normal.woff2') format('woff2');
+	unicode-range:
+		U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+		U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+		U+A720-A7FF;
+}
+@font-face {
+	font-family: 'Source Serif 4';
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url('/fonts/SourceSerif4-latin-normal.woff2') format('woff2');
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'Source Serif 4';
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url('/fonts/SourceSerif4-latin-ext-normal.woff2') format('woff2');
+	unicode-range:
+		U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+		U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+		U+A720-A7FF;
+}
+@font-face {
+	font-family: 'Source Serif 4';
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url('/fonts/SourceSerif4-latin-italic.woff2') format('woff2');
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'Source Serif 4';
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url('/fonts/SourceSerif4-latin-ext-italic.woff2') format('woff2');
+	unicode-range:
+		U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+		U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+		U+A720-A7FF;
+}
+@font-face {
+	font-family: 'Noto Nastaliq Urdu';
+	font-style: normal;
+	font-weight: 400 700;
+	font-display: swap;
+	src: url('/fonts/NotoNastaliqUrdu-arabic-normal.woff2') format('woff2');
+	unicode-range:
+		U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E,
+		U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+	font-family: 'Noto Serif Devanagari';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('/fonts/NotoSerifDevanagari-devanagari-normal.woff2') format('woff2');
+	unicode-range:
+		U+0900-097F, U+1CD0-1CF6, U+1CF8-1CF9, U+200C-200D, U+20A8, U+20B9, U+25CC, U+A830-A839;
+}
+
+/* Material 3 colour roles as design tokens, in OKLCH.
+ *
+ * The palette is keyed to a warm ink-and-paper feeling rather than a product blue: this is a
+ * reading site for Urdu and Hindi literature, and the page should read like paper.
+ *
+ * Only redefine tokens in the dark block. Never give a colour its sole definition there. */
+@theme {
+	--color-primary: oklch(0.48 0.11 52);
+	--color-on-primary: oklch(0.99 0.01 90);
+	--color-primary-container: oklch(0.9 0.05 70);
+	--color-on-primary-container: oklch(0.28 0.07 50);
+
+	--color-secondary: oklch(0.5 0.05 145);
+	--color-on-secondary: oklch(0.99 0.01 90);
+	--color-secondary-container: oklch(0.9 0.04 145);
+	--color-on-secondary-container: oklch(0.28 0.04 145);
+
+	--color-surface: oklch(0.99 0.008 85);
+	--color-on-surface: oklch(0.22 0.02 60);
+	--color-surface-container: oklch(0.96 0.012 85);
+	--color-surface-container-high: oklch(0.93 0.015 85);
+	--color-on-surface-variant: oklch(0.45 0.02 60);
+	--color-outline: oklch(0.6 0.02 60);
+	--color-outline-variant: oklch(0.85 0.015 70);
+
+	--color-error: oklch(0.5 0.19 27);
+	--color-on-error: oklch(0.99 0.01 90);
+	--color-error-container: oklch(0.92 0.05 25);
+	--color-on-error-container: oklch(0.3 0.11 27);
+
+	/* Nastaliq for Urdu, Devanagari for Hindi, and a text face for Roman transliteration.
+	 * Bodies arrive in all three scripts, so a work page mixes them on one screen. */
+	--font-urdu: 'Noto Nastaliq Urdu', serif;
+	--font-hindi: 'Noto Serif Devanagari', serif;
+	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-serif: 'Source Serif 4', ui-serif, Georgia, serif;
+
+	--radius-m3-sm: 0.5rem;
+	--radius-m3-md: 0.75rem;
+	--radius-m3-lg: 1rem;
+	--radius-m3-xl: 1.75rem;
+
+	/* Nastaliq is unreadable at Latin text sizes; give it its own step on the scale. */
+	--text-nastaliq: 1.45rem;
+	--text-nastaliq--line-height: 2.4;
+	--text-nastaliq-lg: 1.75rem;
+	--text-nastaliq-lg--line-height: 2.4;
+}
+
+@layer theme {
+	:root:not([data-theme='light']) {
+		@media (prefers-color-scheme: dark) {
+			--color-primary: oklch(0.8 0.09 70);
+			--color-on-primary: oklch(0.28 0.07 50);
+			--color-primary-container: oklch(0.38 0.08 55);
+			--color-on-primary-container: oklch(0.9 0.05 70);
+
+			--color-secondary: oklch(0.78 0.05 145);
+			--color-on-secondary: oklch(0.25 0.04 145);
+			--color-secondary-container: oklch(0.36 0.04 145);
+			--color-on-secondary-container: oklch(0.9 0.04 145);
+
+			--color-surface: oklch(0.17 0.012 60);
+			--color-on-surface: oklch(0.91 0.012 80);
+			--color-surface-container: oklch(0.22 0.014 60);
+			--color-surface-container-high: oklch(0.27 0.016 60);
+			--color-on-surface-variant: oklch(0.75 0.015 70);
+			--color-outline: oklch(0.58 0.015 70);
+			--color-outline-variant: oklch(0.35 0.015 65);
+
+			--color-error: oklch(0.75 0.13 25);
+			--color-on-error: oklch(0.28 0.1 27);
+			--color-error-container: oklch(0.38 0.13 27);
+			--color-on-error-container: oklch(0.92 0.05 25);
+		}
+	}
+
+	:root[data-theme='dark'] {
+		--color-primary: oklch(0.8 0.09 70);
+		--color-on-primary: oklch(0.28 0.07 50);
+		--color-primary-container: oklch(0.38 0.08 55);
+		--color-on-primary-container: oklch(0.9 0.05 70);
+
+		--color-secondary: oklch(0.78 0.05 145);
+		--color-on-secondary: oklch(0.25 0.04 145);
+		--color-secondary-container: oklch(0.36 0.04 145);
+		--color-on-secondary-container: oklch(0.9 0.04 145);
+
+		--color-surface: oklch(0.17 0.012 60);
+		--color-on-surface: oklch(0.91 0.012 80);
+		--color-surface-container: oklch(0.22 0.014 60);
+		--color-surface-container-high: oklch(0.27 0.016 60);
+		--color-on-surface-variant: oklch(0.75 0.015 70);
+		--color-outline: oklch(0.58 0.015 70);
+		--color-outline-variant: oklch(0.35 0.015 65);
+
+		--color-error: oklch(0.75 0.13 25);
+		--color-on-error: oklch(0.28 0.1 27);
+		--color-error-container: oklch(0.38 0.13 27);
+		--color-on-error-container: oklch(0.92 0.05 25);
+	}
+}
+
+html {
+	background-color: var(--color-surface);
+	color: var(--color-on-surface);
+}
+
+/* Urdu bodies are right-to-left; the rest of the chrome is not. */
+[lang='ur'] {
+	direction: rtl;
+	font-family: var(--font-urdu);
+	line-height: 2.4;
+}
+
+[lang='hi'] {
+	font-family: var(--font-hindi);
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
+}
